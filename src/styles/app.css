@@ -154,3 +154,11 @@ textarea.inp{min-height:76px;resize:vertical}
 .lang-edit{align-self:start;justify-self:start}
 .rec-wrap{display:grid;gap:8px}
 .media .err{flex-basis:100%}
+
+/* Mot de passe : l'œil pour afficher / masquer */
+.pass{position:relative;display:block}
+.pass .inp{width:100%;padding-right:48px}
+.eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:40px;display:grid;place-items:center;border:0;background:none;color:var(--muted);border-radius:8px;cursor:pointer}
+.eye:hover{color:var(--ink)}
+.eye:focus-visible{outline:2px solid var(--canard);outline-offset:-2px}
+.eye svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
