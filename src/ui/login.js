@@ -3,7 +3,7 @@ import { $, esc } from "./dom.js";
 
 const BAD_EMAIL = "Écris une adresse e-mail complète, par exemple prenom@exemple.fr.";
 const NOT_MEMBER = "Cette adresse n'a pas accès au carnet. Demande à la personne qui l'a créé de l'ajouter.";
-const TOO_MANY = "Trop de demandes d'un coup. Réessaie dans quelques minutes.";
+const TOO_MANY = "Trop d'e-mails envoyés pour l'instant (2 par heure au maximum). Réessaie dans une heure, ou connecte-toi avec ton mot de passe si tu en as un.";
 const NETWORK = "Ça n'a pas marché. Vérifie ta connexion, puis réessaie.";
 
 // Après une connexion par code, on propose de choisir un mot de passe (voir askPassword).
@@ -94,9 +94,10 @@ export function renderLogin(app, email = "") {
   passwordStep();
 }
 
-// Après une connexion par code : choisir un mot de passe pour les prochaines fois.
+// Choisir ou changer son mot de passe : proposé après une connexion par code, et depuis l'en-tête.
 export function askPassword() {
   codeLogin = false;
+  if ($("#dlgPass")) return;
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="dlgPass" aria-label="Mot de passe"><form class="dlg" id="formPass" novalidate>
       <h3>Choisis un mot de passe</h3>
