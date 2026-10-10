@@ -4,7 +4,7 @@ import { createSupabaseAdapter } from "./carnet/supabase-adapter.js";
 import { carnet, setCarnet } from "./ui/carnet-ref.js";
 import { createGate } from "./session/gate.js";
 import { $ } from "./ui/dom.js";
-import { renderLogin, renderPrivate, renderSetup } from "./ui/login.js";
+import { renderLogin, renderPrivate, renderSetup, loggedInWithCode, askPassword } from "./ui/login.js";
 import { headerHTML, bindHeader, renderHeader } from "./ui/header.js";
 import { renderLessons, setQuery } from "./ui/lessons.js";
 import { openLesson } from "./ui/lesson-dialog.js";
@@ -51,6 +51,7 @@ function showCarnet(c) {
   render();
   // Le temps réel ne rejoue pas ce qui a été manqué (téléphone en veille, onglet en arrière-plan).
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") c.resync(); });
+  if (loggedInWithCode()) askPassword();
 }
 
 const VIEWS = {

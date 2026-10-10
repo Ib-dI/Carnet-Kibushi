@@ -2,17 +2,20 @@
 
 Un carnet en ligne, partagé à deux, pour apprendre une langue orale : mots écrits à l'oreille, prononciation, traduction, photo et surtout vocaux, rangés par leçon, avec un mode révision.
 
-Vite + JavaScript vanilla, Supabase (auth par lien magique, Postgres, stockage, temps réel).
+Vite + JavaScript vanilla, Supabase (connexion par mot de passe ou code e-mail, Postgres, stockage, temps réel).
 
 ## Mise en route
 
 1. Créer un projet gratuit sur [supabase.com](https://supabase.com).
 2. Dans **SQL Editor**, coller `supabase/schema.sql` en remplaçant les deux adresses e-mail (et les prénoms affichés), puis exécuter.
-3. Dans **Authentication → URL Configuration**, ajouter l'adresse du site (et `http://localhost:5173` pour les tests) dans les URL de redirection.
+3. Dans Supabase → **Authentication** :
+   - **URL Configuration** : mettre l'adresse du site en *Site URL*, et l'ajouter (avec `http://localhost:5173`) aux URL de redirection.
+   - **Hooks → Before User Created** : choisir *Postgres* puis `public.hook_members_only`. Seules les adresses de `members` peuvent alors créer un compte.
+   - **Email Templates** : pour « Magic Link » et « Confirm signup », coller `supabase/templates/code.html` (sujet : `Ton code pour le carnet : {{ .Token }}`).
 4. Copier `.env.example` en `.env` et y mettre l'URL du projet et sa clé **publishable** (**Project Settings → API Keys** ; sur un ancien projet, la clé `anon`). Jamais la clé `secret` / `service_role`.
 5. `npm install` puis `npm run dev`. Les tests : `npm test`.
 6. Déployer sur Netlify ou Vercel (build `npm run build`, dossier `dist`, mêmes variables d’environnement `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`).
-7. Envoyer le lien à la professeure : elle saisit son e-mail et reçoit son lien de connexion.
+7. Envoyer l'adresse du site à la professeure : la première fois, elle demande un code, le tape dans le carnet, puis choisit un mot de passe. Ensuite, e-mail + mot de passe suffisent.
 
 Ajouter une personne plus tard : une ligne de plus dans la table `members` (**Table Editor → members**).
 

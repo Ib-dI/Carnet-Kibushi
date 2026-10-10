@@ -124,3 +124,20 @@ create policy "membres modifient media" on storage.objects for update to authent
   with check (bucket_id = 'media' and (select private.is_member()));
 create policy "membres suppriment media" on storage.objects for delete to authenticated
   using (bucket_id = 'media' and (select private.is_member()));
+
+-- Connexion : seules les adresses de members peuvent créer un compte.
+-- À activer ensuite dans Authentication → Hooks → « Before User Created » → Postgres → public.hook_members_only.
+create or replace function public.hook_members_only(event jsonb)
+returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if exists (select 1 from public.members m
+             where lower(m.email) = lower(event->'user'->>'email')) then
+    return '{}'::jsonb;
+  end if;
+  return jsonb_build_object('error', jsonb_build_object(
+    'http_code', 403,
+    'message', 'Cette adresse n''a pas accès au carnet.'));
+end $$;
+revoke execute on function public.hook_members_only(jsonb) from public, anon, authenticated;
+grant execute on function public.hook_members_only(jsonb) to supabase_auth_admin;
