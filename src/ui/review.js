@@ -1,22 +1,16 @@
 import { mediaUrl } from "../lib/media.js";
 import { playPath, stopPlayback } from "../lib/player.js";
 import { carnet } from "./carnet-ref.js";
+import { createSession } from "../revision/session.js";
 import { $, $$, esc, colorVar, PLAY_ICON, lessonLabel } from "./dom.js";
 
-// Une Entrée devient une Carte si elle a un mot et une Traduction, et n'est pas un Conseil.
-export const reviewable = e => e.type !== "conseil" && e.word && e.translation;
+let session = null, dir = "fr", revLesson = "";
 
-let deck = [], total = 0, pos = 0, flipped = false, dir = "fr", revLesson = "", known = 0;
+const buildDeck = () => { session = createSession(carnet.state.entries, { lessonId: revLesson }); };
 
-function buildDeck() {
-  deck = carnet.state.entries.filter(e => reviewable(e) && (!revLesson || e.lesson_id === revLesson));
-  for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
-  total = deck.length; pos = 0; flipped = false; known = 0;
-}
-
-const flip = () => { flipped = true; draw(); };
-const yes = () => { known++; pos++; flipped = false; draw(); };
-const no = () => { deck.push(deck[pos]); pos++; flipped = false; draw(); };
+const flip = () => { session.flip(); draw(); };
+const yes = () => { session.knew(); draw(); };
+const no = () => { session.again(); draw(); };
 
 function draw() {
   const r = $("#rev");
@@ -26,14 +20,14 @@ function draw() {
   let focus = "#rClose";
   stopPlayback();
 
-  if (!deck.length) {
+  const e = session.current, flipped = session.flipped;
+  if (!session.total) {
     r.innerHTML = top + `<p class="status">Aucune carte avec mot et traduction dans cette leçon.</p><div class="rev-bar"><button class="btn" type="button" id="rClose">Fermer</button></div>`;
-  } else if (pos >= deck.length) {
-    r.innerHTML = top + `<div class="card-face"><div class="big">${known} / ${total}</div><div class="q">cartes que tu savais déjà</div></div>
+  } else if (!e) {
+    r.innerHTML = top + `<div class="card-face"><div class="big">${session.score} / ${session.total}</div><div class="q">cartes que tu savais déjà</div></div>
       <div class="rev-bar"><button class="btn solid" type="button" id="rAgain">Recommencer</button><button class="btn" type="button" id="rClose">Fermer</button></div>`;
     focus = "#rAgain";
   } else {
-    const e = deck[pos];
     const col = colorVar(carnet.state.lessons.find(l => l.id === e.lesson_id)?.color);
     const pron = e.pron ? `<div class="pron">[ ${esc(e.pron)} ]</div>` : "";
     const front = dir === "fr"
@@ -43,7 +37,7 @@ function draw() {
       ? `<div class="big" style="color:${col}">${esc(e.word)}</div>${pron}<div class="q">${esc(e.translation)}</div>`
       : `<div class="big">${esc(e.translation)}</div><div class="q">${esc(e.word)}</div>`;
     const play = e.audio_path && (flipped || dir === "lg") ? `<button class="play" style="--c:${col}" type="button" id="rPlay" aria-label="Écouter">${PLAY_ICON}</button>` : "";
-    r.innerHTML = top + `<div class="count" aria-live="polite">Carte ${pos + 1} sur ${deck.length}</div>
+    r.innerHTML = top + `<div class="count" aria-live="polite">Carte ${session.position + 1} sur ${session.count}</div>
       <div class="card-face">${e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>
       <div class="rev-bar">${flipped
         ? `<button class="btn" type="button" id="rNo">À revoir</button><button class="btn solid" type="button" id="rYes">Je savais</button>`
@@ -57,7 +51,7 @@ function draw() {
   }
 
   $("#rL").onchange = ev => { revLesson = ev.target.value; buildDeck(); draw(); };
-  $$("[data-dir]", r).forEach(b => b.onclick = () => { dir = b.dataset.dir; flipped = false; draw(); });
+  $$("[data-dir]", r).forEach(b => b.onclick = () => { dir = b.dataset.dir; draw(); });
   $("#rClose").onclick = () => $("#dlgRev").close();
   $("#rAgain")?.addEventListener("click", () => { buildDeck(); draw(); });
   $(focus)?.focus();
@@ -65,10 +59,10 @@ function draw() {
 
 // Raccourcis : Espace = retourner, → = je savais, ← = à revoir.
 function onKey(ev) {
-  if (ev.target.tagName === "SELECT" || pos >= deck.length || !deck.length) return;
-  if (ev.key === " " && !flipped) { ev.preventDefault(); flip(); }
-  else if (ev.key === "ArrowRight" && flipped) { ev.preventDefault(); yes(); }
-  else if (ev.key === "ArrowLeft" && flipped) { ev.preventDefault(); no(); }
+  if (ev.target.tagName === "SELECT" || !session?.current) return;
+  if (ev.key === " " && !session.flipped) { ev.preventDefault(); flip(); }
+  else if (ev.key === "ArrowRight" && session.flipped) { ev.preventDefault(); yes(); }
+  else if (ev.key === "ArrowLeft" && session.flipped) { ev.preventDefault(); no(); }
 }
 
 export function initReview() {

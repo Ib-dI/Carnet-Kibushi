@@ -7,7 +7,8 @@ import { renderLogin, renderPrivate, renderSetup } from "./ui/login.js";
 import { headerHTML, bindHeader, renderHeader } from "./ui/header.js";
 import { renderLessons, setQuery } from "./ui/lessons.js";
 import { openLesson } from "./ui/lesson-dialog.js";
-import { initReview, openReview, reviewable } from "./ui/review.js";
+import { initReview, openReview } from "./ui/review.js";
+import { reviewable } from "./revision/session.js";
 
 const app = $("#app");
 let started = false;
