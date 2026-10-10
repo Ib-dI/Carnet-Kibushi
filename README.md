@@ -10,7 +10,7 @@ Vite + JavaScript vanilla, Supabase (auth par lien magique, Postgres, stockage, 
 2. Dans **SQL Editor**, coller `supabase/schema.sql` en remplaçant les deux adresses e-mail (et les prénoms affichés), puis exécuter.
 3. Dans **Authentication → URL Configuration**, ajouter l'adresse du site (et `http://localhost:5173` pour les tests) dans les URL de redirection.
 4. Copier `.env.example` en `.env` et y mettre l'URL du projet et sa clé **publishable** (**Project Settings → API Keys** ; sur un ancien projet, la clé `anon`). Jamais la clé `secret` / `service_role`.
-5. `npm install` puis `npm run dev`.
+5. `npm install` puis `npm run dev`. Les tests : `npm test`.
 6. Déployer sur Netlify ou Vercel (build `npm run build`, dossier `dist`, mêmes variables d’environnement `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`).
 7. Envoyer le lien à la professeure : elle saisit son e-mail et reçoit son lien de connexion.
 
@@ -33,8 +33,8 @@ index.html              page unique
 public/                 manifest et icônes
 supabase/schema.sql     tables, sécurité (RLS), temps réel, stockage
 src/main.js             démarrage, routage connexion / carnet
-src/state.js            état en mémoire + abonnements temps réel
-src/lib/                client Supabase, médias, enregistreur, lecteur audio
+src/carnet/             le Carnet : chargement, temps réel, écritures et Médias (testé avec `npm test`)
+src/lib/                client Supabase, affichage des médias, enregistreur, lecteur audio
 src/ui/                 en-tête, grille de leçons, fenêtres, révision, connexion
 src/styles/             tokens (couleurs, polices) et composants
 ```
