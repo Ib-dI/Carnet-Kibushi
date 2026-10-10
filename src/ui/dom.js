@@ -19,5 +19,10 @@ export function h(html) {
 export const pad = n => String(n).padStart(2, "0");
 export const fmtDate = t => t ? new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
 export const SAVE_ERROR = "L'enregistrement n'a pas marché. Vérifie ta connexion et réessaie.";
+export const TOO_LARGE = { audio: "Vocal trop lourd (10 Mo max).", image: "Photo trop lourde (10 Mo max)." };
+
+// Message à afficher pour un échec d'écriture du Carnet ({ ok: false, reason }).
+export const errorText = (r, empty = SAVE_ERROR) =>
+  r.reason === "too-large" ? TOO_LARGE[r.media] : r.reason === "empty" ? empty : SAVE_ERROR;
 
 export const lessonLabel = l => (l.emoji ? l.emoji + " " : "") + l.title;

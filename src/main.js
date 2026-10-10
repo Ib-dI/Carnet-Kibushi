@@ -1,11 +1,13 @@
 import { supabase, configured } from "./lib/supabase.js";
-import { state, load, subscribe, onChange, reviewable } from "./state.js";
+import { createCarnet } from "./carnet/carnet.js";
+import { createSupabaseAdapter } from "./carnet/supabase-adapter.js";
+import { carnet, setCarnet } from "./ui/carnet-ref.js";
 import { $ } from "./ui/dom.js";
 import { renderLogin, renderPrivate, renderSetup } from "./ui/login.js";
 import { headerHTML, bindHeader, renderHeader } from "./ui/header.js";
-import { renderLessons } from "./ui/lessons.js";
+import { renderLessons, setQuery } from "./ui/lessons.js";
 import { openLesson } from "./ui/lesson-dialog.js";
-import { initReview, openReview } from "./ui/review.js";
+import { initReview, openReview, reviewable } from "./ui/review.js";
 
 const app = $("#app");
 let started = false;
@@ -26,7 +28,7 @@ function shell() {
     <dialog id="dlgZoom" aria-label="Image en grand"><div class="zoom"><button class="btn small ghost" id="zoomClose" type="button">Fermer</button><img id="zoomImg" alt=""></div></dialog>`);
 
   bindHeader();
-  $("#search").addEventListener("input", ev => { state.query = ev.target.value.trim(); renderLessons(); });
+  $("#search").addEventListener("input", ev => setQuery(ev.target.value.trim()));
   $("#newLesson").onclick = () => openLesson();
   $("#revBtn").onclick = openReview;
   $("#zoomClose").onclick = () => $("#dlgZoom").close();
@@ -38,25 +40,28 @@ function shell() {
 function render() {
   renderHeader();
   renderLessons();
-  $("#revBtn").disabled = !state.entries.some(reviewable);
+  $("#revBtn").disabled = !carnet.state.entries.some(reviewable);
 }
 
 async function enter(session) {
-  state.me = session.user.email;
-  const { data, error } = await supabase.from("members").select("email").limit(1);
-  if (error) { app.innerHTML = `<p class="status">Le carnet ne répond pas. Vérifie ta connexion et recharge la page.</p>`; return; }
-  if (!data.length) { renderPrivate(app, state.me); return; }
   if (started) return;
   started = true;
-  shell();
-  onChange(render);
-  try {
-    await load();
-    subscribe();
-  } catch (e) {
-    console.warn(e);
-    $("#list").innerHTML = `<p class="status">Impossible d'ouvrir le carnet. Vérifie ta connexion et recharge la page.</p>`;
+  const me = session.user.email;
+  app.innerHTML = `<p class="status">Ouverture du carnet…</p>`;
+  const c = createCarnet({ ...createSupabaseAdapter(supabase), me });
+  const { status } = await c.start();
+  if (status !== "ok") {
+    started = false;
+    if (status === "not-member") renderPrivate(app, me);
+    else app.innerHTML = `<p class="status">Le carnet ne répond pas. Vérifie ta connexion et recharge la page.</p>`;
+    return;
   }
+  setCarnet(c);
+  shell();
+  c.onChange(render);
+  render();
+  // Le temps réel ne rejoue pas ce qui a été manqué (téléphone en veille, onglet en arrière-plan).
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") c.resync(); });
 }
 
 if (!configured) {

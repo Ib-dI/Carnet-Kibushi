@@ -1,12 +1,16 @@
-import { supabase } from "../lib/supabase.js";
-import { mediaUrl, uploadMedia, removeMedia, resizeImage } from "../lib/media.js";
+import { mediaUrl, resizeImage } from "../lib/media.js";
+import { MAX_MEDIA_BYTES } from "../carnet/carnet.js";
 import { startRecording, canRecord, fmtTime, MAX_SECONDS } from "../lib/recorder.js";
 import { stopPlayback } from "../lib/player.js";
-import { state, applyLocal } from "../state.js";
-import { $, $$, esc, COLORS, EMOJIS, TYPES, SAVE_ERROR, lessonLabel } from "./dom.js";
+import { carnet } from "./carnet-ref.js";
+import { $, $$, esc, COLORS, EMOJIS, TYPES, TOO_LARGE, errorText, lessonLabel } from "./dom.js";
 
 const MIC_BLOCKED = "Le micro est bloqué. Autorise-le dans les réglages du navigateur, ou choisis un fichier.";
 const MIC_FAILED = "Le micro ne répond pas. Choisis plutôt un fichier audio.";
+const EMPTY_ENTRY = "Écris au moins le mot, la traduction, ou ajoute un vocal.";
+
+// État d'un Média pour saveEntry : remplacé, retiré ou gardé.
+const mediaChange = (blob, removed) => blob ? { replace: blob } : removed ? { remove: true } : { keep: true };
 
 export function openEntry(e, lessonId) {
   const dlg = $("#dlgEntry"), f = $("#formEntry");
@@ -42,7 +46,7 @@ export function openEntry(e, lessonId) {
         <div class="field"><span>Image</span><div class="media" id="eImg"></div></div>
         <div class="field"><span>Vocal</span><div class="media" id="eAud"></div></div>
       </div>
-      <label class="field"><span>Leçon</span><select id="eLesson" class="inp">${state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === st.lesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select></label>
+      <label class="field"><span>Leçon</span><select id="eLesson" class="inp">${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === st.lesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select></label>
       <div class="err" id="eErr" role="alert" hidden></div>
       <div class="actions">${e ? `<span id="eDelZone"><button class="btn small danger" type="button" id="eDel">Supprimer</button></span>` : "<span></span>"}
         <div class="right"><button class="btn ghost" type="button" id="eCancel">Annuler</button><button class="btn solid" id="eSave">Enregistrer</button></div></div>`;
@@ -105,7 +109,7 @@ export function openEntry(e, lessonId) {
     const ai = $("#audIn");
     if (ai) ai.onchange = () => {
       const file = ai.files[0]; if (!file) return;
-      if (file.size > 10 * 1024 * 1024) { st.recError = "Vocal trop lourd (10 Mo max)."; drawAudio(); return; }
+      if (file.size > MAX_MEDIA_BYTES) { st.recError = TOO_LARGE.audio; drawAudio(); return; }
       st.newAudio = file; st.removeAudio = true; st.recError = ""; drawAudio();
     };
   };
@@ -146,11 +150,9 @@ export function openEntry(e, lessonId) {
     $("#eNo").onclick = () => { keep(); draw(); $("#eDel").focus(); };
     $("#eYes").onclick = async () => {
       $("#eYes").disabled = true;
-      const { error } = await supabase.from("entries").delete().eq("id", e.id);
-      if (error) { draw(); showErr(SAVE_ERROR); return; }
-      applyLocal("entries", e, "DELETE");
+      const r = await carnet.deleteEntry(e);
+      if (!r.ok) { draw(); showErr(errorText(r)); return; }
       dlg.close();
-      removeMedia(e.image_path, e.audio_path);
     };
   };
 
@@ -161,36 +163,17 @@ export function openEntry(e, lessonId) {
     ev.preventDefault();
     if (st.rec) await stopRec();
     keep();
-    const word = st.values.word.trim(), translation = st.values.tr.trim();
-    const hasAudio = st.newAudio || (st.audio && !st.removeAudio);
-    if (!word && !translation && !hasAudio) { showErr("Écris au moins le mot, la traduction, ou ajoute un vocal."); $("#eWord").focus(); return; }
     const btn = $("#eSave"); btn.disabled = true; btn.textContent = "Enregistrement…"; $("#eErr").hidden = true;
-    const uploaded = [];
-    try {
-      let image_path = st.removeImage ? null : st.image, audio_path = st.removeAudio ? null : st.audio;
-      if (st.newImage) { image_path = await uploadMedia(await resizeImage(st.newImage), "image"); uploaded.push(image_path); }
-      if (st.newAudio) { audio_path = await uploadMedia(st.newAudio, "audio"); uploaded.push(audio_path); }
-      const body = {
-        type: st.type, word, translation,
-        pron: st.type === "conseil" ? "" : st.values.pron.trim(),
-        note: st.values.note.trim(), emoji: st.emoji, text_color: st.tc,
-        lesson_id: st.lesson, image_path, audio_path,
-      };
-      const q = e
-        ? supabase.from("entries").update(body).eq("id", e.id).select().single()
-        : supabase.from("entries").insert(body).select().single();
-      const { data, error } = await q;
-      if (error) throw error;
-      applyLocal("entries", data, e ? "UPDATE" : "INSERT");
-      // Les anciens fichiers ne partent qu'une fois la ligne à jour.
-      if (e && e.image_path && e.image_path !== image_path) removeMedia(e.image_path);
-      if (e && e.audio_path && e.audio_path !== audio_path) removeMedia(e.audio_path);
-      dlg.close();
-    } catch (x) {
-      removeMedia(...uploaded);
-      btn.disabled = false; btn.textContent = "Enregistrer";
-      showErr(x && /lourd/.test(x.message || "") ? x.message : SAVE_ERROR);
-    }
+    const r = await carnet.saveEntry(e || null, {
+      type: st.type, word: st.values.word, pron: st.values.pron, translation: st.values.tr, note: st.values.note,
+      emoji: st.emoji, text_color: st.tc, lesson_id: st.lesson,
+      image: mediaChange(st.newImage && await resizeImage(st.newImage), st.removeImage),
+      audio: mediaChange(st.newAudio, st.removeAudio),
+    });
+    if (r.ok) { dlg.close(); return; }
+    btn.disabled = false; btn.textContent = "Enregistrer";
+    showErr(errorText(r, EMPTY_ENTRY));
+    if (r.reason === "empty") $("#eWord").focus();
   };
 
   dlg.addEventListener("close", () => {

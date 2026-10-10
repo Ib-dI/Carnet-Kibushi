@@ -1,22 +1,13 @@
-import { supabase } from "../lib/supabase.js";
-import { removeMedia } from "../lib/media.js";
-import { state, applyLocal } from "../state.js";
-import { $, $$, esc, COLORS, EMOJIS, SAVE_ERROR } from "./dom.js";
+import { carnet } from "./carnet-ref.js";
+import { $, $$, esc, COLORS, EMOJIS, errorText } from "./dom.js";
 
-// Renvoie un message d'erreur, ou null si tout s'est bien passé.
-export async function createLesson({ title, emoji = "", color = "canard" }) {
-  const position = state.lessons.length ? Math.max(...state.lessons.map(x => x.position || 0)) + 1 : 1;
-  const { data, error } = await supabase.from("lessons").insert({ title, emoji, color, position }).select().single();
-  if (error) return SAVE_ERROR;
-  applyLocal("lessons", data, "INSERT");
-  return null;
-}
+const EMPTY_TITLE = "Donne un nom au thème.";
 
 export function openLesson(l) {
   const dlg = $("#dlgLesson"), f = $("#formLesson");
-  let color = l ? l.color : COLORS[state.lessons.length % COLORS.length][0];
+  let color = l ? l.color : COLORS[carnet.state.lessons.length % COLORS.length][0];
   let emoji = l ? l.emoji || "" : "";
-  const lessonEntries = () => l ? state.entries.filter(e => e.lesson_id === l.id) : [];
+  const lessonEntries = () => l ? carnet.state.entries.filter(e => e.lesson_id === l.id) : [];
 
   const draw = (title = l ? l.title : "") => {
     f.innerHTML = `<h3>${l ? "Modifier la leçon" : "Nouvelle leçon"}</h3>
@@ -49,30 +40,18 @@ export function openLesson(l) {
     $("#lDelYes").focus();
     $("#lDelYes").onclick = async () => {
       $("#lDelYes").disabled = true;
-      const paths = lessonEntries().flatMap(e => [e.image_path, e.audio_path]);
-      // Les entrées partent avec la leçon (on delete cascade).
-      const { error } = await supabase.from("lessons").delete().eq("id", l.id);
-      if (error) { draw($("#lTitle").value); showErr(SAVE_ERROR); return; }
-      applyLocal("lessons", l, "DELETE");
+      const r = await carnet.deleteLesson(l);
+      if (!r.ok) { draw($("#lTitle").value); showErr(errorText(r)); return; }
       dlg.close();
-      removeMedia(...paths);
     };
   };
 
   f.onsubmit = async ev => {
     ev.preventDefault();
-    const title = $("#lTitle").value.trim();
-    if (!title) { showErr("Donne un nom au thème."); $("#lTitle").focus(); return; }
     const btn = $("#lSave"); btn.disabled = true;
-    let err = null;
-    if (l) {
-      const { data, error } = await supabase.from("lessons").update({ title, emoji, color }).eq("id", l.id).select().single();
-      if (error) err = SAVE_ERROR; else applyLocal("lessons", data);
-    } else {
-      err = await createLesson({ title, emoji, color });
-    }
+    const r = await carnet.saveLesson(l || null, { title: $("#lTitle").value, emoji, color });
     btn.disabled = false;
-    if (err) { showErr(err); return; }
+    if (!r.ok) { showErr(errorText(r, EMPTY_TITLE)); if (r.reason === "empty") $("#lTitle").focus(); return; }
     dlg.close();
   };
 

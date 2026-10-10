@@ -1,21 +1,24 @@
-import { state, authorName } from "../state.js";
+import { carnet } from "./carnet-ref.js";
 import { cachedUrl, mediaUrl } from "../lib/media.js";
 import { playPath, rebindPlaying } from "../lib/player.js";
-import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS } from "./dom.js";
+import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, errorText } from "./dom.js";
 import { openEntry } from "./entry-dialog.js";
-import { openLesson, createLesson } from "./lesson-dialog.js";
+import { openLesson } from "./lesson-dialog.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
+let query = "";
+export function setQuery(q) { query = q; renderLessons(); }
+
 function matches(e) {
-  if (!state.query) return true;
-  const q = state.query.toLowerCase();
+  if (!query) return true;
+  const q = query.toLowerCase();
   return [e.word, e.pron, e.translation, e.note].some(x => (x || "").toLowerCase().includes(q));
 }
 
 function entryHTML(e) {
   const tc = e.text_color ? `--tc:${colorVar(e.text_color)};` : "";
-  const who = authorName(e.author_email);
+  const who = carnet.authorName(e.author_email);
   const metaLine = `<div class="meta">${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button></div>`;
   const play = e.audio_path ? `<button class="play" type="button" data-play="${esc(e.id)}" aria-label="Écouter ${esc(e.word || "le vocal")}">${PLAY_ICON}</button>` : "";
   const thumb = e.image_path ? `<img class="thumb" data-img="${esc(e.id)}" alt="Image pour ${esc(e.word || "cette entrée")}" role="button" tabindex="0">` : "";
@@ -49,14 +52,14 @@ function emptyHTML() {
 }
 
 export function renderLessons() {
-  const list = $("#list");
+  const list = $("#list"), state = carnet.state;
   if (!state.lessons.length) {
     list.innerHTML = emptyHTML();
     $$("[data-sugg]", list).forEach(b => b.onclick = async () => {
       const s = SUGGESTIONS[+b.dataset.sugg];
       b.disabled = true;
-      const err = await createLesson({ title: s[0], emoji: s[1], color: s[2] });
-      if (err) { b.disabled = false; const p = $("#suggErr"); p.hidden = false; p.textContent = err; }
+      const r = await carnet.saveLesson(null, { title: s[0], emoji: s[1], color: s[2] });
+      if (!r.ok) { b.disabled = false; const p = $("#suggErr"); p.hidden = false; p.textContent = errorText(r); }
     });
     $("#customLesson").onclick = () => openLesson();
     return;
@@ -68,7 +71,7 @@ export function renderLessons() {
   state.lessons.forEach((l, i) => {
     const all = (byLesson[l.id] || []).sort((a, b) => time(a) - time(b));
     const es = all.filter(matches);
-    if (state.query && !es.length) return;
+    if (query && !es.length) return;
     shown++;
     html += `<article class="lesson" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
@@ -82,17 +85,17 @@ export function renderLessons() {
     </article>`;
   });
   html += "</div>";
-  if (state.query && !shown) html = `<p class="status">Aucun résultat pour « ${esc(state.query)} ».</p>`;
+  if (query && !shown) html = `<p class="status">Aucun résultat pour « ${esc(query)} ».</p>`;
 
   // Garder le focus clavier sur le même bouton après un re-rendu (temps réel).
   const focusSel = focusSelector(document.activeElement, list);
   list.innerHTML = html;
   if (focusSel) list.querySelector(focusSel)?.focus();
 
-  const entry = id => state.entries.find(e => e.id === id);
+  const entry = id => carnet.state.entries.find(e => e.id === id);
   $$("[data-add]", list).forEach(b => b.onclick = () => openEntry(null, b.dataset.add));
   $$("[data-edit]", list).forEach(b => b.onclick = () => openEntry(entry(b.dataset.edit)));
-  $$("[data-ledit]", list).forEach(b => b.onclick = () => openLesson(state.lessons.find(l => l.id === b.dataset.ledit)));
+  $$("[data-ledit]", list).forEach(b => b.onclick = () => openLesson(carnet.state.lessons.find(l => l.id === b.dataset.ledit)));
   $$("[data-play]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.play); e && playPath(e.audio_path, b, e.id); });
   rebindPlaying(list);
   $$("[data-img]", list).forEach(img => {

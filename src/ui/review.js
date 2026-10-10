@@ -1,12 +1,15 @@
 import { mediaUrl } from "../lib/media.js";
 import { playPath, stopPlayback } from "../lib/player.js";
-import { state, reviewable } from "../state.js";
+import { carnet } from "./carnet-ref.js";
 import { $, $$, esc, colorVar, PLAY_ICON, lessonLabel } from "./dom.js";
+
+// Une Entrée devient une Carte si elle a un mot et une Traduction, et n'est pas un Conseil.
+export const reviewable = e => e.type !== "conseil" && e.word && e.translation;
 
 let deck = [], total = 0, pos = 0, flipped = false, dir = "fr", revLesson = "", known = 0;
 
 function buildDeck() {
-  deck = state.entries.filter(e => reviewable(e) && (!revLesson || e.lesson_id === revLesson));
+  deck = carnet.state.entries.filter(e => reviewable(e) && (!revLesson || e.lesson_id === revLesson));
   for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
   total = deck.length; pos = 0; flipped = false; known = 0;
 }
@@ -17,7 +20,7 @@ const no = () => { deck.push(deck[pos]); pos++; flipped = false; draw(); };
 
 function draw() {
   const r = $("#rev");
-  const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
+  const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
   const top = `<div class="label">Révision · devine avant de retourner</div>${opts}
     <div class="rev-bar"><button class="btn small ${dir === "fr" ? "solid" : "ghost"}" type="button" data-dir="fr" aria-pressed="${dir === "fr"}">Français → langue</button><button class="btn small ${dir === "lg" ? "solid" : "ghost"}" type="button" data-dir="lg" aria-pressed="${dir === "lg"}">Langue → français</button></div>`;
   let focus = "#rClose";
@@ -31,7 +34,7 @@ function draw() {
     focus = "#rAgain";
   } else {
     const e = deck[pos];
-    const col = colorVar(state.lessons.find(l => l.id === e.lesson_id)?.color);
+    const col = colorVar(carnet.state.lessons.find(l => l.id === e.lesson_id)?.color);
     const pron = e.pron ? `<div class="pron">[ ${esc(e.pron)} ]</div>` : "";
     const front = dir === "fr"
       ? `<div class="q">Comment dit-on…</div><div class="big">${esc(e.translation)}</div>`
@@ -75,7 +78,7 @@ export function initReview() {
 }
 
 export function openReview() {
-  if (revLesson && !state.lessons.some(l => l.id === revLesson)) revLesson = "";
+  if (revLesson && !carnet.state.lessons.some(l => l.id === revLesson)) revLesson = "";
   buildDeck();
   $("#dlgRev").showModal();
   draw();
