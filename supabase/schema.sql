@@ -1,0 +1,126 @@
+-- Carnet de langue partagé — à exécuter une fois dans Supabase → SQL Editor.
+-- Les adresses autorisées sont dans la table members, plus bas.
+
+-- Extensions
+create extension if not exists pgcrypto;
+
+-- Schéma privé (non exposé à l'API) pour les fonctions internes
+create schema if not exists private;
+
+-- Membres autorisés
+create table public.members (
+  email text primary key,
+  display_name text not null
+);
+insert into public.members (email, display_name) values
+  ('ton-adresse@exemple.fr', 'Ton prénom');
+-- Pour ajouter la professeure plus tard (SQL Editor) :
+-- insert into public.members (email, display_name) values ('adresse@exemple.fr', 'Prénom');
+
+-- Vrai si la personne connectée figure dans members.
+-- security definer : nécessaire pour lire members sans boucler sur sa propre politique RLS.
+-- Rangée dans le schéma privé pour ne pas être appelable comme point d'API.
+create or replace function private.is_member() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.members m
+                 where lower(m.email) = lower(auth.jwt() ->> 'email'));
+$$;
+revoke all on function private.is_member() from public, anon;
+grant usage on schema private to authenticated;
+grant execute on function private.is_member() to authenticated;
+
+-- Carnet (une seule ligne)
+create table public.carnet (
+  id int primary key default 1 check (id = 1),
+  langue text default ''
+);
+insert into public.carnet (id) values (1);
+
+-- Leçons
+create table public.lessons (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  emoji text default '',
+  color text not null default 'canard'
+    check (color in ('brique','canard','ocre','prune','indigo','olive')),
+  position int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Entrées
+create table public.entries (
+  id uuid primary key default gen_random_uuid(),
+  lesson_id uuid not null references public.lessons(id) on delete cascade,
+  type text not null default 'mot' check (type in ('mot','phrase','expression','conseil')),
+  word text default '',
+  pron text default '',
+  translation text default '',
+  note text default '',
+  emoji text default '',
+  text_color text default '' check (text_color in ('','brique','canard','ocre','prune','indigo','olive')),
+  image_path text,
+  audio_path text,
+  author_email text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index on public.entries (lesson_id, created_at);
+
+-- L'autrice est toujours la personne connectée à la création, et ne change plus ensuite.
+create or replace function private.entries_stamp() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    new.author_email = auth.jwt() ->> 'email';
+    new.created_at = now();
+  else
+    new.author_email = old.author_email;
+    new.created_at = old.created_at;
+  end if;
+  new.updated_at = now();
+  return new;
+end $$;
+create trigger entries_stamp before insert or update on public.entries
+  for each row execute function private.entries_stamp();
+
+-- Accès à l'API : seulement les personnes connectées (jamais anon).
+-- Depuis 2026, les nouveaux projets n'exposent plus les tables sans grant explicite.
+revoke all on public.members, public.carnet, public.lessons, public.entries from anon;
+grant select on public.members to authenticated;
+grant select, update on public.carnet to authenticated;
+grant select, insert, update, delete on public.lessons, public.entries to authenticated;
+
+-- Sécurité ligne par ligne : seules les membres lisent et écrivent
+alter table public.members enable row level security;
+alter table public.carnet  enable row level security;
+alter table public.lessons enable row level security;
+alter table public.entries enable row level security;
+
+create policy "membres lisent membres" on public.members for select to authenticated
+  using ((select private.is_member()));
+create policy "membres lisent carnet" on public.carnet for select to authenticated
+  using ((select private.is_member()));
+create policy "membres modifient carnet" on public.carnet for update to authenticated
+  using ((select private.is_member())) with check ((select private.is_member()));
+create policy "membres lessons" on public.lessons for all to authenticated
+  using ((select private.is_member())) with check ((select private.is_member()));
+create policy "membres entries" on public.entries for all to authenticated
+  using ((select private.is_member())) with check ((select private.is_member()));
+
+-- Temps réel
+alter publication supabase_realtime add table public.carnet, public.lessons, public.entries;
+
+-- Stockage : bucket privé "media" (images et vocaux, 10 Mo max par fichier)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('media', 'media', false, 10485760, array['image/*', 'audio/*'])
+  on conflict (id) do nothing;
+
+create policy "membres lisent media" on storage.objects for select to authenticated
+  using (bucket_id = 'media' and (select private.is_member()));
+create policy "membres ajoutent media" on storage.objects for insert to authenticated
+  with check (bucket_id = 'media' and (select private.is_member()));
+create policy "membres modifient media" on storage.objects for update to authenticated
+  using (bucket_id = 'media' and (select private.is_member()))
+  with check (bucket_id = 'media' and (select private.is_member()));
+create policy "membres suppriment media" on storage.objects for delete to authenticated
+  using (bucket_id = 'media' and (select private.is_member()));
