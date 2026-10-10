@@ -1,5 +1,6 @@
 import { mediaUrl, resizeImage } from "../lib/media.js";
 import { MAX_MEDIA_BYTES } from "../carnet/carnet.js";
+import { createMediaSlot } from "../carnet/media-slot.js";
 import { startRecording, canRecord, fmtTime, MAX_SECONDS } from "../lib/recorder.js";
 import { stopPlayback } from "../lib/player.js";
 import { carnet } from "./carnet-ref.js";
@@ -9,16 +10,14 @@ const MIC_BLOCKED = "Le micro est bloqué. Autorise-le dans les réglages du nav
 const MIC_FAILED = "Le micro ne répond pas. Choisis plutôt un fichier audio.";
 const EMPTY_ENTRY = "Écris au moins le mot, la traduction, ou ajoute un vocal.";
 
-// État d'un Média pour saveEntry : remplacé, retiré ou gardé.
-const mediaChange = (blob, removed) => blob ? { replace: blob } : removed ? { remove: true } : { keep: true };
-
 export function openEntry(e, lessonId) {
   const dlg = $("#dlgEntry"), f = $("#formEntry");
   const st = {
     type: e ? e.type : "mot", emoji: e ? e.emoji || "" : "", tc: e ? e.text_color || "" : "",
     lesson: e ? e.lesson_id : lessonId,
-    image: e ? e.image_path || null : null, audio: e ? e.audio_path || null : null,
-    newImage: null, newAudio: null, removeImage: false, removeAudio: false,
+    // La photo est redimensionnée à l'enregistrement : pas de limite au choix du fichier.
+    image: createMediaSlot(e?.image_path || null),
+    audio: createMediaSlot(e?.audio_path || null, { maxBytes: MAX_MEDIA_BYTES }),
     rec: null, recSecs: 0, recError: "",
     values: { word: e?.word || "", pron: e?.pron || "", tr: e?.translation || "", note: e?.note || "" },
   };
@@ -67,19 +66,19 @@ export function openEntry(e, lessonId) {
 
   /* ---------- Image ---------- */
   const drawImage = () => {
-    const im = $("#eImg");
-    if (st.newImage) {
-      im.innerHTML = `<img src="${objectUrl(st.newImage)}" alt="Aperçu de la photo"><button type="button" class="btn small ghost" id="imgX">Retirer</button>`;
-    } else if (st.image && !st.removeImage) {
+    const im = $("#eImg"), shown = st.image.shown;
+    if (shown?.blob) {
+      im.innerHTML = `<img src="${objectUrl(shown.blob)}" alt="Aperçu de la photo"><button type="button" class="btn small ghost" id="imgX">Retirer</button>`;
+    } else if (shown) {
       im.innerHTML = `<img id="imgOld" alt="Photo actuelle"><button type="button" class="btn small ghost" id="imgX">Retirer</button>`;
-      mediaUrl(st.image).then(u => { const x = $("#imgOld"); if (x && u) x.src = u; });
+      mediaUrl(shown.path).then(u => { const x = $("#imgOld"); if (x && u) x.src = u; });
     } else {
       im.innerHTML = `<label class="btn small filebtn">Ajouter une photo<input type="file" accept="image/*" id="imgIn"></label>`;
     }
     const ix = $("#imgX");
-    if (ix) ix.onclick = () => { if (st.newImage) st.newImage = null; else st.removeImage = true; drawImage(); };
+    if (ix) ix.onclick = () => { st.image.clear(); drawImage(); };
     const ii = $("#imgIn");
-    if (ii) ii.onchange = () => { if (ii.files[0]) { st.newImage = ii.files[0]; st.removeImage = true; drawImage(); } };
+    if (ii) ii.onchange = () => { if (ii.files[0]) { st.image.replace(ii.files[0]); drawImage(); } };
   };
 
   /* ---------- Vocal ---------- */
@@ -92,12 +91,12 @@ export function openEntry(e, lessonId) {
       $("#recBtn").onclick = stopRec;
       return;
     }
-    const current = st.newAudio || (st.audio && !st.removeAudio);
-    if (current) {
-      au.innerHTML = `<audio controls id="audPrev" ${st.newAudio ? `src="${objectUrl(st.newAudio)}"` : ""}></audio>
+    const shown = st.audio.shown;
+    if (shown) {
+      au.innerHTML = `<audio controls id="audPrev" ${shown.blob ? `src="${objectUrl(shown.blob)}"` : ""}></audio>
         ${canRecord() ? `<button type="button" class="btn small ghost" id="audRedo">Refaire</button>` : ""}
         <button type="button" class="btn small ghost" id="audX">Retirer</button>${err}`;
-      if (!st.newAudio) mediaUrl(st.audio).then(u => { const x = $("#audPrev"); if (x && u) x.src = u; });
+      if (shown.path) mediaUrl(shown.path).then(u => { const x = $("#audPrev"); if (x && u) x.src = u; });
     } else {
       au.innerHTML = `${canRecord() ? `<button type="button" class="rec-btn" id="recBtn" aria-label="Enregistrer un vocal">🎙</button><span class="rec-time">0:00</span>` : ""}
         <label class="btn small ghost filebtn">Choisir un fichier<input type="file" accept="audio/*,.m4a,.mp3,.ogg,.opus,.wav,.aac" id="audIn"></label>${err}`;
@@ -105,12 +104,12 @@ export function openEntry(e, lessonId) {
     const rb = $("#recBtn"); if (rb) rb.onclick = startRec;
     const redo = $("#audRedo"); if (redo) redo.onclick = startRec;
     const ax = $("#audX");
-    if (ax) ax.onclick = () => { if (st.newAudio) st.newAudio = null; else st.removeAudio = true; st.recError = ""; drawAudio(); };
+    if (ax) ax.onclick = () => { st.audio.clear(); st.recError = ""; drawAudio(); };
     const ai = $("#audIn");
     if (ai) ai.onchange = () => {
       const file = ai.files[0]; if (!file) return;
-      if (file.size > MAX_MEDIA_BYTES) { st.recError = TOO_LARGE.audio; drawAudio(); return; }
-      st.newAudio = file; st.removeAudio = true; st.recError = ""; drawAudio();
+      st.recError = st.audio.replace(file).ok ? "" : TOO_LARGE.audio;
+      drawAudio();
     };
   };
 
@@ -138,7 +137,7 @@ export function openEntry(e, lessonId) {
     st.rec = null;
     const blob = await r.stop();
     if (!blob.size) { st.recError = MIC_FAILED; drawAudio(); return; }
-    st.newAudio = blob; st.removeAudio = true;
+    st.recError = st.audio.replace(blob).ok ? "" : TOO_LARGE.audio;
     drawAudio();
   };
 
@@ -167,8 +166,8 @@ export function openEntry(e, lessonId) {
     const r = await carnet.saveEntry(e || null, {
       type: st.type, word: st.values.word, pron: st.values.pron, translation: st.values.tr, note: st.values.note,
       emoji: st.emoji, text_color: st.tc, lesson_id: st.lesson,
-      image: mediaChange(st.newImage && await resizeImage(st.newImage), st.removeImage),
-      audio: mediaChange(st.newAudio, st.removeAudio),
+      image: st.image.change.replace ? { replace: await resizeImage(st.image.change.replace) } : st.image.change,
+      audio: st.audio.change,
     });
     if (r.ok) { dlg.close(); return; }
     btn.disabled = false; btn.textContent = "Enregistrer";
