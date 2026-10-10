@@ -2,6 +2,7 @@ import { supabase, configured } from "./lib/supabase.js";
 import { createCarnet } from "./carnet/carnet.js";
 import { createSupabaseAdapter } from "./carnet/supabase-adapter.js";
 import { carnet, setCarnet } from "./ui/carnet-ref.js";
+import { createGate } from "./session/gate.js";
 import { $ } from "./ui/dom.js";
 import { renderLogin, renderPrivate, renderSetup } from "./ui/login.js";
 import { headerHTML, bindHeader, renderHeader } from "./ui/header.js";
@@ -11,7 +12,6 @@ import { initReview, openReview } from "./ui/review.js";
 import { reviewable } from "./revision/session.js";
 
 const app = $("#app");
-let started = false;
 
 function shell() {
   app.innerHTML = `${headerHTML()}
@@ -44,19 +44,7 @@ function render() {
   $("#revBtn").disabled = !carnet.state.entries.some(reviewable);
 }
 
-async function enter(session) {
-  if (started) return;
-  started = true;
-  const me = session.user.email;
-  app.innerHTML = `<p class="status">Ouverture du carnet…</p>`;
-  const c = createCarnet({ ...createSupabaseAdapter(supabase), me });
-  const { status } = await c.start();
-  if (status !== "ok") {
-    started = false;
-    if (status === "not-member") renderPrivate(app, me);
-    else app.innerHTML = `<p class="status">Le carnet ne répond pas. Vérifie ta connexion et recharge la page.</p>`;
-    return;
-  }
+function showCarnet(c) {
   setCarnet(c);
   shell();
   c.onChange(render);
@@ -65,18 +53,22 @@ async function enter(session) {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") c.resync(); });
 }
 
+const VIEWS = {
+  login: () => renderLogin(app),
+  loading: () => { app.innerHTML = `<p class="status">Ouverture du carnet…</p>`; },
+  private: email => renderPrivate(app, email),
+  offline: () => { app.innerHTML = `<p class="status">Le carnet ne répond pas. Vérifie ta connexion et recharge la page.</p>`; },
+  carnet: showCarnet,
+  reload: () => location.reload(),
+};
+
 if (!configured) {
   renderSetup(app);
 } else {
-  let current = null;
-  supabase.auth.onAuthStateChange((event, session) => {
-    // Ne pas appeler Supabase directement dans ce rappel (verrou interne) : on diffère.
-    setTimeout(() => {
-      if (event === "SIGNED_OUT") { if (started) location.reload(); else renderLogin(app); current = null; return; }
-      if (!session) { renderLogin(app); return; }
-      if (current === session.user.email) return;
-      current = session.user.email;
-      enter(session);
-    }, 0);
+  const gate = createGate({
+    openCarnet: me => createCarnet({ ...createSupabaseAdapter(supabase), me }),
+    show: (view, data) => VIEWS[view](data),
   });
+  // Ne pas appeler Supabase directement dans ce rappel (verrou interne) : on diffère.
+  supabase.auth.onAuthStateChange((event, session) => setTimeout(() => gate.onAuth(event, session), 0));
 }
