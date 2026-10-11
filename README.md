@@ -13,8 +13,8 @@ Vite + JavaScript vanilla, Supabase (connexion par mot de passe ou code e-mail, 
    - **Hooks → Before User Created** : choisir *Postgres* puis `public.hook_members_only`. Seules les adresses de `members` peuvent alors créer un compte.
    - **Email Templates** : pour « Magic Link » et « Confirm signup », coller `supabase/templates/code.html` (sujet : `Ton code pour le carnet : {{ .Token }}`).
 4. Copier `.env.example` en `.env` et y mettre l'URL du projet et sa clé **publishable** (**Project Settings → API Keys** ; sur un ancien projet, la clé `anon`). Jamais la clé `secret` / `service_role`.
-5. `npm install` puis `npm run dev`. Les tests : `npm test`.
-6. Déployer sur Netlify ou Vercel (build `npm run build`, dossier `dist`, mêmes variables d’environnement `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`).
+5. `pnpm install` puis `pnpm dev`. Les tests : `pnpm test`.
+6. Déployer sur Netlify ou Vercel (build `pnpm vercel-build` (tests puis build : un test qui échoue bloque la mise en ligne), dossier `dist`, mêmes variables d’environnement `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`).
 7. Envoyer l'adresse du site à la professeure : la première fois, elle demande un code, le tape dans le carnet, puis choisit un mot de passe. Ensuite, e-mail + mot de passe suffisent.
 
 Ajouter une personne plus tard : une ligne de plus dans la table `members` (**Table Editor → members**).
@@ -36,7 +36,7 @@ index.html              page unique
 public/                 manifest et icônes
 supabase/schema.sql     tables, sécurité (RLS), temps réel, stockage
 src/main.js             démarrage, routage connexion / carnet
-src/carnet/             le Carnet : chargement, temps réel, écritures et Médias (testé avec `npm test`)
+src/carnet/             le Carnet : chargement, temps réel, écritures et Médias (testé avec `pnpm test`)
 src/lib/                client Supabase, affichage des médias, enregistreur, lecteur audio
 src/ui/                 en-tête, grille de leçons, fenêtres, révision, connexion
 src/styles/             tokens (couleurs, polices) et composants

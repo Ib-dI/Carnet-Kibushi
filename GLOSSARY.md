@@ -45,8 +45,16 @@ _À éviter_ : transcription, phonétique
 Le sens en français d'une Entrée.
 
 **Vocal** :
-L'enregistrement audio d'une Entrée, enregistré dans le Carnet ou importé (par exemple depuis WhatsApp).
+L'enregistrement audio d'une Entrée, enregistré dans le Carnet ou importé (par exemple depuis WhatsApp). C'est le Vocal de référence de l'Entrée, en général celui de la professeure.
 _À éviter_ : audio, son, message vocal
+
+**Essai** :
+L'enregistrement d'un Membre qui imite le Vocal d'une Entrée, pour comparer sa prononciation. Chaque Membre a au plus un Essai par Entrée.
+_À éviter_ : imitation, tentative
+
+**Commentaire** :
+Un message court, signé et daté, laissé par un Membre sous une Entrée (correction, question, précision).
+_À éviter_ : note (déjà un champ de l'Entrée), remarque
 
 **Média** :
 Le Vocal ou l'image attachés à une Entrée. Une Entrée a au plus un Vocal et une image.
@@ -58,9 +66,22 @@ _À éviter_ : pièce jointe, fichier
 Une séance où l'on parcourt des Cartes en devinant avant de retourner.
 _À éviter_ : quiz, test, exercice
 
+**Révision du jour** :
+La Révision des Cartes dont la date de retour est arrivée, plus quelques nouvelles Cartes.
+
+**Révision libre** :
+Une Révision de toutes les Cartes (ou d'une Leçon), sans tenir compte des Boîtes ni les modifier.
+
 **Carte** :
 Une Entrée révisable vue pendant une Révision. Une Entrée est révisable si elle a une écriture dans la Langue et une Traduction, et n'est pas un Conseil.
 _À éviter_ : flashcard
 
 **Sens de révision** :
-Français → Langue, ou Langue → Français.
+Français → Langue, ou Langue → Français. Chaque Carte a une Boîte par Sens de révision.
+
+**Boîte** :
+Le niveau d'une Carte pour un Membre et un Sens de révision : plus la Boîte est haute, plus la Carte revient tard. « Je savais » fait monter d'une Boîte, « À revoir » renvoie à la première.
+_À éviter_ : niveau, score
+
+**Carte difficile** :
+Une Carte qu'un Membre a souvent marquée « À revoir ».
