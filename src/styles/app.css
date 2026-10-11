@@ -182,3 +182,8 @@ textarea.inp{min-height:76px;resize:vertical}
 .meter{display:inline-block;width:90px;height:8px;border-radius:999px;background:var(--line);overflow:hidden;vertical-align:middle}
 .meter i{display:block;height:100%;width:0;background:var(--canard);transition:width .1s linear}
 @media (prefers-reduced-motion:reduce){ .meter i{transition:none} }
+
+/* Champs : la largeur inclut la marge intérieure, même si une extension (gestionnaire de mots de passe…)
+   impose une autre règle sur input[type=…]. Le sélecteur .field .inp l'emporte sur input[type=email]. */
+.field .inp,.pass .inp{box-sizing:border-box;max-width:100%;min-width:0}
+.pass{width:100%;min-width:0}
