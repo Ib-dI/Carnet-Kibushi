@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase.js";
 import { $, esc } from "./dom.js";
+import { themeButtonHTML, bindTheme } from "./theme.js";
 
 const BAD_EMAIL = "Écris une adresse e-mail complète, par exemple prenom@exemple.fr.";
 const NOT_MEMBER = "Cette adresse n'a pas accès au carnet. Demande à la personne qui l'a créé de l'ajouter.";
@@ -43,6 +44,7 @@ const validEmail = s => /^\S+@\S+\.\S+$/.test(s);
 export function renderLogin(app, email = knownEmails()[0] || "") {
   const frame = body => {
     app.innerHTML = `
+      <div class="userbar">${themeButtonHTML()}</div>
       <div class="login">
         <div class="label eyebrow">Carnet partagé · Langue orale</div>
         <h1>Mon carnet <em>de langue</em></h1>
@@ -51,6 +53,7 @@ export function renderLogin(app, email = knownEmails()[0] || "") {
         </form>
       </div>`;
     bindEyes(app);
+    bindTheme(app);
     return { form: $("#loginForm"), msg: $("#loginMsg") };
   };
   const say = (msg, text, isErr = true) => { msg.classList.toggle("err", isErr); msg.textContent = text; };

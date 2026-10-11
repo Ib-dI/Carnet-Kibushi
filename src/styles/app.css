@@ -187,3 +187,8 @@ textarea.inp{min-height:76px;resize:vertical}
    impose une autre règle sur input[type=…]. Le sélecteur .field .inp l'emporte sur input[type=email]. */
 .field .inp,.pass .inp{box-sizing:border-box;max-width:100%;min-width:0}
 .pass{width:100%;min-width:0}
+
+/* Bouton de thème (Auto / Clair / Sombre) */
+.theme-btn{display:inline-flex;align-items:center;gap:6px}
+.theme-btn span{font-size:.85em}
+@media (max-width:480px){ .theme-btn span{display:none} }

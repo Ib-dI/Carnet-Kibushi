@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase.js";
 import { carnet } from "./carnet-ref.js";
 import { $, esc, errorText } from "./dom.js";
 import { askPassword } from "./login.js";
+import { themeButtonHTML, bindTheme } from "./theme.js";
 
 let editing = false;
 
@@ -43,7 +44,7 @@ function editLang() {
 
 export function headerHTML() {
   return `
-    <div class="userbar"><span id="who"></span><button class="btn small ghost" type="button" id="password">Mot de passe</button><button class="btn small ghost" type="button" id="logout">Se déconnecter</button></div>
+    <div class="userbar"><span id="who"></span>${themeButtonHTML()}<button class="btn small ghost" type="button" id="password">Mot de passe</button><button class="btn small ghost" type="button" id="logout">Se déconnecter</button></div>
     <header>
       <div class="label eyebrow">Carnet partagé · Langue orale</div>
       <h1 id="title">Mon carnet <em>de langue</em></h1>
@@ -64,4 +65,5 @@ export function headerHTML() {
 export function bindHeader() {
   $("#logout").onclick = () => supabase.auth.signOut();
   $("#password").onclick = askPassword;
+  bindTheme($(".userbar"));
 }
