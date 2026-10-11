@@ -33,7 +33,9 @@ function record(entryId, d, answer) {
 function buildDeck() {
   saveFailed = false; flash = "";
   if (mode === "libre") {
-    session = createSession(carnet.state.entries, { lessonId: revLesson, onFirstAnswer: (e, a) => record(e.id, dir, a) });
+    // En écoute, seules les Cartes qui ont un Vocal.
+    const pool = dir === "ec" ? carnet.state.entries.filter(e => e.audio_path) : carnet.state.entries;
+    session = createSession(pool, { lessonId: revLesson, onFirstAnswer: (e, a) => record(e.id, dir, a) });
     return;
   }
   const scope = { lessonId: revLesson, limit: revSize || Infinity };
@@ -52,7 +54,7 @@ const setMode = m => { mode = m; buildDeck(); draw(); };
 // Nom de la Langue choisi dans l'en-tête (« Kibushi »), ou « langue » s'il n'est pas encore donné.
 const langName = () => (carnet.state.carnet.langue || "").trim() || "langue";
 const capital = s => s.charAt(0).toUpperCase() + s.slice(1);
-const sensLabel = d => d === "fr" ? `Français → ${langName()}` : `${capital(langName())} → français`;
+const sensLabel = d => d === "fr" ? `Français → ${langName()}` : d === "lg" ? `${capital(langName())} → français` : "Écoute";
 
 function topHTML() {
   const tab = (m, label) => `<button class="btn small ${mode === m ? "solid" : "ghost"}" type="button" data-mode="${m}" aria-pressed="${mode === m}">${label}</button>`;
@@ -65,7 +67,7 @@ function topHTML() {
   }
   const dirBtn = (d, label) => `<button class="btn small ${dir === d ? "solid" : "ghost"}" type="button" data-dir="${d}" aria-pressed="${dir === d}">${label}</button>`;
   return `<div class="label">Révision libre · devine avant de retourner</div>${tabs}${opts}
-    <div class="rev-bar">${dirBtn("fr", esc(sensLabel("fr")))}${dirBtn("lg", esc(sensLabel("lg")))}</div>`;
+    <div class="rev-bar">${dirBtn("fr", esc(sensLabel("fr")))}${dirBtn("lg", esc(sensLabel("lg")))}${dirBtn("ec", "🎧 Écoute")}</div>`;
 }
 
 function draw() {
@@ -94,23 +96,28 @@ function draw() {
     const e = mode === "jour" ? cur.entry : cur, d = mode === "jour" ? cur.dir : dir;
     const col = colorVar(carnet.state.lessons.find(l => l.id === e.lesson_id)?.color);
     const pron = e.pron ? `<div class="pron">[ ${esc(e.pron)} ]</div>` : "";
+    const listen = d === "ec";
     const front = d === "fr"
       ? `<div class="q">Comment dit-on…</div><div class="big">${esc(e.translation)}</div>`
+      : listen ? `<div class="q">Écoute, puis devine le mot et son sens</div>`
       : `<div class="q">Qu'est-ce que ça veut dire ?</div><div class="big" style="color:${col}">${esc(e.word)}</div>${pron}`;
-    const back = d === "fr"
-      ? `<div class="big" style="color:${col}">${esc(e.word)}</div>${pron}<div class="q">${esc(e.translation)}</div>`
-      : `<div class="big">${esc(e.translation)}</div><div class="q">${esc(e.word)}</div>`;
-    const play = e.audio_path && (flipped || d === "lg") ? `<button class="play" style="--c:${col}" type="button" id="rPlay" aria-label="Écouter">${PLAY_ICON}</button>` : "";
+    const back = d === "lg"
+      ? `<div class="big">${esc(e.translation)}</div><div class="q">${esc(e.word)}</div>`
+      : `<div class="big" style="color:${col}">${esc(e.word)}</div>${pron}<div class="q">${esc(e.translation)}</div>`;
+    const play = e.audio_path && (flipped || d !== "fr") ? `<button class="play ${listen && !flipped ? "big-play" : ""}" style="--c:${col}" type="button" id="rPlay" aria-label="Écouter">${PLAY_ICON}</button>` : "";
+    // En écoute, ni emoji ni image avant de retourner : ils souffleraient la réponse.
+    const hint = !(listen && !flipped);
     const tryBtn = flipped ? `<button class="mini" type="button" id="rTry">🎙 Mon essai</button>` : "";
     const sens = mode === "jour" ? ` · ${esc(sensLabel(d))}` : "";
     r.innerHTML = top + note + `<div class="count" aria-live="polite">Carte ${session.position + 1} sur ${session.count}${sens}</div>
-      <div class="card-face">${e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${tryBtn}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>${warn}
+      <div class="card-face">${hint && e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${hint && e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${tryBtn}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>${warn}
       <div class="rev-bar">${flipped
         ? `<button class="btn" type="button" id="rNo">À revoir</button><button class="btn solid" type="button" id="rYes">Je savais</button><button class="btn" type="button" id="rEasy" title="Ne la remontrer que dans 30 jours">Par cœur</button>`
         : `<button class="btn solid" type="button" id="rFlip">Retourner la carte</button>`}<button class="btn ghost" type="button" id="rClose">Fermer</button></div>`;
     focus = flipped ? "#rYes" : "#rFlip";
     if (e.image_path) mediaUrl(e.image_path).then(u => { const i = $("#rImg"); if (i) { if (u) i.src = u; else i.remove(); } });
     const p = $("#rPlay"); if (p) p.onclick = () => playPath(e.audio_path, p, "rev");
+    if (p && listen && !flipped) playPath(e.audio_path, p, "rev");   // l'écoute démarre seule
     $("#rTry")?.addEventListener("click", () => openAttempt(e));
     $("#rFlip")?.addEventListener("click", flip);
     $("#rYes")?.addEventListener("click", yes);
@@ -120,7 +127,12 @@ function draw() {
 
   $$("[data-mode]", r).forEach(b => b.onclick = () => setMode(b.dataset.mode));
   const sel = $("#rL"); if (sel) sel.onchange = ev => { revLesson = ev.target.value; buildDeck(); draw(); };
-  $$("[data-dir]", r).forEach(b => b.onclick = () => { dir = b.dataset.dir; draw(); });
+  $$("[data-dir]", r).forEach(b => b.onclick = () => {
+    const rebuild = (dir === "ec") !== (b.dataset.dir === "ec");   // le paquet change avec l'écoute
+    dir = b.dataset.dir;
+    if (rebuild) buildDeck();
+    draw();
+  });
   $$("[data-size]", r).forEach(b => b.onclick = () => { revSize = +b.dataset.size; buildDeck(); draw(); });
   $("#rClose").onclick = () => $("#dlgRev").close();
   $("#rAgain")?.addEventListener("click", () => { buildDeck(); draw(); });

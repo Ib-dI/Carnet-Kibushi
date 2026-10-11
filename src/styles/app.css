@@ -197,3 +197,5 @@ textarea.inp{min-height:76px;resize:vertical}
 .rev-flash{text-align:center;font-weight:700;color:var(--canard)}
 .rev-size{justify-content:center}
 .rev-size .chip{padding:4px 12px;font-size:.85rem}
+.play.big-play{width:72px;height:72px;margin:8px auto}
+.play.big-play svg{width:26px;height:26px}

@@ -77,7 +77,7 @@ Une Entrée révisable vue pendant une Révision. Une Entrée est révisable si 
 _À éviter_ : flashcard
 
 **Sens de révision** :
-Français → Langue, ou Langue → Français. Chaque Carte a une Boîte par Sens de révision.
+Français → Langue, Langue → Français, ou Écoute (entendre le Vocal et deviner, seulement pour les Cartes qui ont un Vocal). Chaque Carte a une Boîte par Sens de révision.
 
 **Boîte** :
 Le niveau d'une Carte pour un Membre et un Sens de révision : plus la Boîte est haute, plus la Carte revient tard. « Je savais » fait monter d'une Boîte, « À revoir » renvoie à la première.

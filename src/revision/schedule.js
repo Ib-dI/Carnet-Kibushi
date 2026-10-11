@@ -1,9 +1,11 @@
 // Révision du jour : les Boîtes de Leitner, par Membre, par Carte et par Sens de révision.
-// Un progrès = { entry_id, direction: "fr" | "lg", box: 1..5, due: "AAAA-MM-JJ", lapses, introduced_on }.
+// Un progrès = { entry_id, direction: "fr" | "lg" | "ec", box: 1..5, due: "AAAA-MM-JJ", lapses, introduced_on }.
 
 import { reviewable } from "./session.js";
 
-export const DIRECTIONS = ["fr", "lg"];
+// Sens de révision : Français → Langue, Langue → français, Écoute (seulement avec un Vocal).
+export const DIRECTIONS = ["fr", "lg", "ec"];
+export const directionsFor = entry => entry.audio_path ? DIRECTIONS : ["fr", "lg"];
 // Jours avant le retour d'une Carte, selon sa Boîte.
 export const INTERVALS = { 1: 1, 2: 3, 3: 7, 4: 14, 5: 30 };
 const LAST_BOX = 5;
@@ -47,7 +49,7 @@ export function dailyItems(entries, progress, today, { newPerDay = NEW_PER_DAY, 
   const due = [], fresh = [];
   const byAge = cards.slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   for (const entry of byAge) {
-    for (const dir of DIRECTIONS) {
+    for (const dir of directionsFor(entry)) {
       const p = known.get(`${entry.id}:${dir}`);
       if (!p) fresh.push(item(entry, dir));
       else if (p.due <= today) due.push(item(entry, dir));
@@ -60,8 +62,8 @@ export function dailyItems(entries, progress, today, { newPerDay = NEW_PER_DAY, 
 
 // Le prochain jour où des Cartes reviennent, et combien : { day, count }, ou null.
 export function nextReviews(entries, progress, today) {
-  const cards = new Set(entries.filter(reviewable).map(e => e.id));
-  const later = progress.filter(p => cards.has(p.entry_id) && p.due > today);
+  const dirs = new Map(entries.filter(reviewable).map(e => [e.id, directionsFor(e)]));
+  const later = progress.filter(p => dirs.get(p.entry_id)?.includes(p.direction) && p.due > today);
   if (!later.length) return null;
   const day = later.reduce((min, p) => (p.due < min ? p.due : min), later[0].due);
   return { day, count: later.filter(p => p.due === day).length };

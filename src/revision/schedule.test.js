@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addDays, daysBetween, nextProgress, dailyItems, nextReviews, hardEntryIds, INTERVALS, NEW_PER_DAY } from "./schedule.js";
+import { addDays, daysBetween, nextProgress, dailyItems, nextReviews, hardEntryIds, directionsFor, INTERVALS, NEW_PER_DAY } from "./schedule.js";
 
 const TODAY = "2026-10-11";
 const e = (id, extra = {}) => ({ id, type: "mot", word: `w${id}`, translation: `t${id}`, lesson_id: "L", ...extra });
@@ -87,6 +87,24 @@ describe("dailyItems: périmètre", () => {
     const items = dailyItems(entries, progress, TODAY, { rng: keep, limit: 3 });
     expect(items.map(i => i.id).slice(0, 2).sort()).toEqual(["old:fr", "old:lg"]);
     expect(items).toHaveLength(3);
+  });
+});
+
+describe("Écoute", () => {
+  it("only Cartes with a Vocal have the Écoute Sens", () => {
+    expect(directionsFor(e("a"))).toEqual(["fr", "lg"]);
+    expect(directionsFor(e("a", { audio_path: "audio/a.webm" }))).toEqual(["fr", "lg", "ec"]);
+  });
+
+  it("the daily review includes Écoute items for Cartes with a Vocal", () => {
+    const items = dailyItems([e("a", { audio_path: "audio/a.webm" }), e("b")], [], TODAY, { rng: keep });
+    expect(items.map(i => i.id).sort()).toEqual(["a:ec", "a:fr", "a:lg", "b:fr", "b:lg"]);
+  });
+
+  it("ignores Écoute progress once the Vocal is removed", () => {
+    const progress = [p("a", "ec", { due: TODAY }), p("a", "fr", { due: addDays(TODAY, 2) }), p("a", "lg", { due: addDays(TODAY, 2) })];
+    expect(dailyItems([e("a")], progress, TODAY, { rng: keep })).toEqual([]);
+    expect(nextReviews([e("a")], [p("a", "ec", { due: addDays(TODAY, 1) })], TODAY)).toBe(null);
   });
 });
 

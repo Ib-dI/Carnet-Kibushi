@@ -147,7 +147,7 @@ create table public.progress (
   id uuid primary key default gen_random_uuid(),
   member_email text not null default (auth.jwt() ->> 'email'),
   entry_id uuid not null references public.entries(id) on delete cascade,
-  direction text not null check (direction in ('fr', 'lg')),
+  direction text not null check (direction in ('fr', 'lg', 'ec')),   -- ec : écoute
   box smallint not null default 1 check (box between 1 and 5),
   due date not null,
   lapses integer not null default 0 check (lapses >= 0),
