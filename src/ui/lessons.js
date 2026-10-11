@@ -1,19 +1,30 @@
 import { carnet } from "./carnet-ref.js";
 import { cachedUrl, mediaUrl } from "../lib/media.js";
 import { playPath, rebindPlaying } from "../lib/player.js";
-import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, errorText } from "./dom.js";
+import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, TYPES, errorText } from "./dom.js";
+import { entryFilter, isFiltering } from "./entry-filter.js";
 import { openEntry } from "./entry-dialog.js";
 import { openLesson } from "./lesson-dialog.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
-let query = "";
-export function setQuery(q) { query = q; renderLessons(); }
+let filter = { query: "", type: "", noAudio: false };
+export function setFilter(patch) { filter = { ...filter, ...patch }; renderLessons(); }
 
-function matches(e) {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  return [e.word, e.pron, e.translation, e.note].some(x => (x || "").toLowerCase().includes(q));
+// Ligne de filtres sous la recherche : Type d'entrée et « sans Vocal ».
+export function filtersHTML() {
+  const chip = (attr, label, on) => `<button type="button" class="chip" ${attr} aria-pressed="${on}">${label}</button>`;
+  return `<div class="chips filters" role="group" aria-label="Filtrer">
+    ${chip('data-ftype=""', "Tout", !filter.type)}${TYPES.map(t => chip(`data-ftype="${t[0]}"`, t[1] + "s", filter.type === t[0])).join("")}
+    ${chip("data-fnoaudio", "Sans vocal", filter.noAudio)}</div>`;
+}
+export function bindFilters(root) {
+  const sync = () => {
+    $$("[data-ftype]", root).forEach(b => b.setAttribute("aria-pressed", b.dataset.ftype === filter.type));
+    $("[data-fnoaudio]", root).setAttribute("aria-pressed", filter.noAudio);
+  };
+  $$("[data-ftype]", root).forEach(b => b.onclick = () => { setFilter({ type: b.dataset.ftype }); sync(); });
+  $("[data-fnoaudio]", root).onclick = () => { setFilter({ noAudio: !filter.noAudio }); sync(); };
 }
 
 function entryHTML(e) {
@@ -70,8 +81,8 @@ export function renderLessons() {
   let html = '<div class="grid">', shown = 0;
   state.lessons.forEach((l, i) => {
     const all = (byLesson[l.id] || []).sort((a, b) => time(a) - time(b));
-    const es = all.filter(matches);
-    if (query && !es.length) return;
+    const es = all.filter(entryFilter(filter));
+    if (isFiltering(filter) && !es.length) return;
     shown++;
     html += `<article class="lesson" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
@@ -85,7 +96,7 @@ export function renderLessons() {
     </article>`;
   });
   html += "</div>";
-  if (query && !shown) html = `<p class="status">Aucun résultat pour « ${esc(query)} ».</p>`;
+  if (isFiltering(filter) && !shown) html = `<p class="status">${filter.query ? `Aucun résultat pour « ${esc(filter.query)} ».` : "Aucune entrée ne correspond à ces filtres."}</p>`;
 
   // Garder le focus clavier sur le même bouton après un re-rendu (temps réel).
   const focusSel = focusSelector(document.activeElement, list);
