@@ -1,12 +1,13 @@
 // Fenêtre « Prononciation » d'une Entrée : le Vocal de référence, les Essais de chacun,
 // et l'enregistrement de mon Essai. Ouverte depuis la grille ou depuis la Révision.
 import { playPath, stopPlayback, rebindPlaying } from "../lib/player.js";
-import { startRecording, canRecord, fmtTime, MAX_SECONDS } from "../lib/recorder.js";
+import { startRecording, canRecord, fmtTime, meterHTML, setMeter, MAX_SECONDS } from "../lib/recorder.js";
 import { carnet } from "./carnet-ref.js";
 import { $, esc, PLAY_ICON, errorText } from "./dom.js";
 
 const MIC_BLOCKED = "Le micro est bloqué. Autorise-le dans les réglages du navigateur.";
 const MIC_FAILED = "Le micro ne répond pas.";
+const MIC_SILENT = "Aucun son n'a été capté : le micro n'est sans doute pas autorisé pour ce navigateur. Sur Mac : Réglages Système → Confidentialité et sécurité → Micro. Ou essaie dans Chrome ou Safari.";
 
 export function openAttempt(entry) {
   const prev = $("#dlgTry");
@@ -35,7 +36,7 @@ export function openAttempt(entry) {
     const recZone = !canRecord()
       ? `<p class="status">Ce navigateur ne permet pas d'enregistrer.</p>`
       : rec
-        ? `<div class="try-row"><button type="button" class="rec-btn on" id="tryRec" aria-label="Arrêter l'enregistrement">■</button><span class="rec-time" id="tryTime">${fmtTime(secs)}</span><span class="status">Clique pour arrêter</span></div>`
+        ? `<div class="try-row"><button type="button" class="rec-btn on" id="tryRec" aria-label="Arrêter l'enregistrement">■</button><span class="rec-time" id="tryTime">${fmtTime(secs)}</span>${meterHTML("tryLevel")}<span class="status">Clique pour arrêter</span></div>`
         : `<div class="try-row"><button type="button" class="rec-btn" id="tryRec" aria-label="${mine ? "Refaire mon essai" : "Enregistrer mon essai"}" ${busy ? "disabled" : ""}>🎙</button><span>${mine ? "Refaire mon essai" : "Enregistrer mon essai"}</span></div>`;
     body.innerHTML = `<h3>Prononciation · ${esc(e.word || "…")}</h3>
       ${ref}${rows}${recZone}
@@ -65,8 +66,9 @@ export function openAttempt(entry) {
     stopPlayback();
     secs = 0;
     try {
-      rec = await startRecording(s => {
+      rec = await startRecording((s, level) => {
         secs = s;
+        setMeter($("#tryLevel"), level);
         const t = $("#tryTime"); if (t) t.textContent = fmtTime(s);
         if (s >= MAX_SECONDS) stop();
       });
@@ -85,6 +87,7 @@ export function openAttempt(entry) {
     say("Enregistrement…");
     const blob = await r.stop();
     if (!blob.size) { busy = false; return say(MIC_FAILED, true); }
+    if (r.silent) { busy = false; return say(MIC_SILENT, true); }
     const res = await carnet.saveAttempt(entry.id, blob);
     busy = false;
     say(res.ok ? "Ton essai est enregistré. Écoute-le à côté du vocal de référence." : errorText(res), !res.ok);

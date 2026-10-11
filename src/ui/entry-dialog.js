@@ -1,13 +1,14 @@
 import { mediaUrl, resizeImage } from "../lib/media.js";
 import { MAX_MEDIA_BYTES } from "../carnet/carnet.js";
 import { createMediaSlot } from "../carnet/media-slot.js";
-import { startRecording, canRecord, fmtTime, MAX_SECONDS } from "../lib/recorder.js";
+import { startRecording, canRecord, fmtTime, meterHTML, setMeter, MAX_SECONDS } from "../lib/recorder.js";
 import { stopPlayback } from "../lib/player.js";
 import { carnet } from "./carnet-ref.js";
 import { $, $$, esc, COLORS, EMOJIS, TYPES, TOO_LARGE, errorText, lessonLabel } from "./dom.js";
 
 const MIC_BLOCKED = "Le micro est bloqué. Autorise-le dans les réglages du navigateur, ou choisis un fichier.";
 const MIC_FAILED = "Le micro ne répond pas. Choisis plutôt un fichier audio.";
+const MIC_SILENT = "Aucun son n'a été capté : le micro n'est sans doute pas autorisé pour ce navigateur. Sur Mac : Réglages Système → Confidentialité et sécurité → Micro. Ou essaie dans Chrome ou Safari.";
 const EMPTY_ENTRY = "Écris au moins le mot, la traduction, ou ajoute un vocal.";
 
 export function openEntry(e, lessonId) {
@@ -87,7 +88,7 @@ export function openEntry(e, lessonId) {
     const err = st.recError ? `<p class="err" role="alert">${esc(st.recError)}</p>` : "";
     if (st.rec) {
       au.innerHTML = `<button type="button" class="rec-btn on" id="recBtn" aria-label="Arrêter l'enregistrement">■</button>
-        <span class="rec-time" aria-live="off" id="recTime">${fmtTime(st.recSecs)}</span><span class="status">Clique pour arrêter</span>`;
+        <span class="rec-time" aria-live="off" id="recTime">${fmtTime(st.recSecs)}</span>${meterHTML("recLevel")}<span class="status">Clique pour arrêter</span>`;
       $("#recBtn").onclick = stopRec;
       return;
     }
@@ -118,8 +119,9 @@ export function openEntry(e, lessonId) {
     $$("#eAud audio").forEach(a => a.pause());
     st.recError = ""; st.recSecs = 0;
     try {
-      st.rec = await startRecording(s => {
+      st.rec = await startRecording((s, level) => {
         st.recSecs = s;
+        setMeter($("#recLevel"), level);
         const t = $("#recTime"); if (t) t.textContent = fmtTime(s);
         if (s >= MAX_SECONDS) stopRec();
       });
@@ -137,6 +139,7 @@ export function openEntry(e, lessonId) {
     st.rec = null;
     const blob = await r.stop();
     if (!blob.size) { st.recError = MIC_FAILED; drawAudio(); return; }
+    if (r.silent) { st.recError = MIC_SILENT; drawAudio(); return; }
     st.recError = st.audio.replace(blob).ok ? "" : TOO_LARGE.audio;
     drawAudio();
   };
