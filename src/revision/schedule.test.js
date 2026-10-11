@@ -73,6 +73,23 @@ describe("dailyItems", () => {
   });
 });
 
+describe("dailyItems: périmètre", () => {
+  it("one Leçon: only its Cartes, and all its new ones (no daily limit)", () => {
+    const entries = [...Array.from({ length: 7 }, (_, i) => e(`a${i}`, { lesson_id: "A" })), e("b", { lesson_id: "B" })];
+    const items = dailyItems(entries, [], TODAY, { rng: keep, lessonId: "A" });
+    expect(items).toHaveLength(14);
+    expect(items.every(i => i.entry.lesson_id === "A")).toBe(true);
+  });
+
+  it("a size limit keeps due Cartes before new ones", () => {
+    const entries = [e("old"), e("n1"), e("n2")];
+    const progress = [p("old", "fr", { due: TODAY }), p("old", "lg", { due: TODAY })];
+    const items = dailyItems(entries, progress, TODAY, { rng: keep, limit: 3 });
+    expect(items.map(i => i.id).slice(0, 2).sort()).toEqual(["old:fr", "old:lg"]);
+    expect(items).toHaveLength(3);
+  });
+});
+
 describe("hardEntryIds", () => {
   it("a Carte difficile has at least 2 lapses in one Sens", () => {
     expect([...hardEntryIds([p("a", "fr", { lapses: 2 }), p("b", "fr", { lapses: 1 }), p("b", "lg", { lapses: 1 })])]).toEqual(["a"]);

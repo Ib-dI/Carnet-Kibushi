@@ -8,7 +8,9 @@ import { openAttempt } from "./attempt-dialog.js";
 
 // mode : "jour" (Révision du jour, Boîtes de Leitner) ou "libre" (sans planning, par Leçon).
 // flash : où va la Carte qu'on vient de noter (« revient dans 3 jours »), affiché sur la suivante.
-let session = null, mode = "jour", dir = "fr", revLesson = "", saveFailed = false, flash = "";
+// revSize : nombre de Cartes de la Révision du jour (0 = tout ce qui est à revoir).
+let session = null, mode = "jour", dir = "fr", revLesson = "", revSize = 0, saveFailed = false, flash = "";
+const SIZES = [10, 20, 0];
 
 // Nombre de Cartes × Sens à revoir aujourd'hui (pour le bouton « Réviser »).
 export const dueCount = () => dailyItems(carnet.state.entries, carnet.state.progress, localToday()).length;
@@ -34,7 +36,8 @@ function buildDeck() {
     session = createSession(carnet.state.entries, { lessonId: revLesson, onFirstAnswer: (e, a) => record(e.id, dir, a) });
     return;
   }
-  session = createDailySession(dailyItems(carnet.state.entries, carnet.state.progress, localToday()), {
+  const scope = { lessonId: revLesson, limit: revSize || Infinity };
+  session = createDailySession(dailyItems(carnet.state.entries, carnet.state.progress, localToday(), scope), {
     onFirstAnswer: (it, a) => record(it.entry.id, it.dir, a),
   });
 }
@@ -54,8 +57,12 @@ const sensLabel = d => d === "fr" ? `Français → ${langName()}` : `${capital(l
 function topHTML() {
   const tab = (m, label) => `<button class="btn small ${mode === m ? "solid" : "ghost"}" type="button" data-mode="${m}" aria-pressed="${mode === m}">${label}</button>`;
   const tabs = `<div class="rev-bar">${tab("jour", "Du jour")}${tab("libre", "Libre")}</div>`;
-  if (mode === "jour") return `<div class="label">Révision du jour · devine avant de retourner</div>${tabs}`;
   const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
+  if (mode === "jour") {
+    const size = n => `<button class="chip" type="button" data-size="${n}" aria-pressed="${revSize === n}">${n || "Tout"}</button>`;
+    return `<div class="label">Révision du jour · devine avant de retourner</div>${tabs}${opts}
+      <div class="chips rev-size" role="group" aria-label="Combien de cartes">${SIZES.map(size).join("")}</div>`;
+  }
   const dirBtn = (d, label) => `<button class="btn small ${dir === d ? "solid" : "ghost"}" type="button" data-dir="${d}" aria-pressed="${dir === d}">${label}</button>`;
   return `<div class="label">Révision libre · devine avant de retourner</div>${tabs}${opts}
     <div class="rev-bar">${dirBtn("fr", esc(sensLabel("fr")))}${dirBtn("lg", esc(sensLabel("lg")))}</div>`;
@@ -114,6 +121,7 @@ function draw() {
   $$("[data-mode]", r).forEach(b => b.onclick = () => setMode(b.dataset.mode));
   const sel = $("#rL"); if (sel) sel.onchange = ev => { revLesson = ev.target.value; buildDeck(); draw(); };
   $$("[data-dir]", r).forEach(b => b.onclick = () => { dir = b.dataset.dir; draw(); });
+  $$("[data-size]", r).forEach(b => b.onclick = () => { revSize = +b.dataset.size; buildDeck(); draw(); });
   $("#rClose").onclick = () => $("#dlgRev").close();
   $("#rAgain")?.addEventListener("click", () => { buildDeck(); draw(); });
   $(focus)?.focus();

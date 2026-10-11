@@ -37,8 +37,10 @@ const shuffle = (list, rng) => {
 };
 
 // Les items de la Révision du jour : { id, entry, dir }.
-export function dailyItems(entries, progress, today, { newPerDay = NEW_PER_DAY, rng = Math.random } = {}) {
-  const cards = entries.filter(reviewable);
+// lessonId : une seule Leçon (toutes ses nouvelles Cartes, sans limite du jour).
+// limit : nombre maximum d'items, les Cartes à revoir passant avant les nouvelles.
+export function dailyItems(entries, progress, today, { newPerDay = NEW_PER_DAY, rng = Math.random, lessonId = "", limit = Infinity } = {}) {
+  const cards = entries.filter(e => reviewable(e) && (!lessonId || e.lesson_id === lessonId));
   const known = new Map(progress.map(p => [`${p.entry_id}:${p.direction}`, p]));
   const item = (entry, dir) => ({ id: `${entry.id}:${dir}`, entry, dir });
 
@@ -52,8 +54,8 @@ export function dailyItems(entries, progress, today, { newPerDay = NEW_PER_DAY, 
     }
   }
   const introducedToday = progress.filter(p => p.introduced_on === today).length;
-  const room = Math.max(0, newPerDay - introducedToday);
-  return shuffle([...due, ...fresh.slice(0, room)], rng);
+  const room = lessonId ? Infinity : Math.max(0, newPerDay - introducedToday);
+  return [...shuffle(due, rng), ...shuffle(fresh.slice(0, room), rng)].slice(0, limit);
 }
 
 // Le prochain jour où des Cartes reviennent, et combien : { day, count }, ou null.
