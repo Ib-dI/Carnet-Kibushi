@@ -1,9 +1,15 @@
 // Réducteur pur : toutes les règles d'application d'un changement, qu'il vienne
 // d'une écriture locale ou du temps réel. Un changement = { table, type, row }.
 
-export const emptyState = () => ({ carnet: {}, lessons: [], entries: [], members: [] });
+// Tables tenues en liste (lignes repérées par `id`) ; `carnet` est une ligne unique.
+const LISTS = ["lessons", "entries", "progress"];
+// Ce qui part avec une ligne supprimée (on delete cascade côté base) : [table enfant, colonne de lien].
+const CHILDREN = { lessons: [["entries", "lesson_id"]], entries: [["progress", "entry_id"]] };
+
+export const emptyState = () => ({ carnet: {}, members: [], ...Object.fromEntries(LISTS.map(t => [t, []])) });
 
 const byPosition = (a, b) => a.position - b.position || String(a.created_at).localeCompare(String(b.created_at));
+const SORTS = { lessons: byPosition };
 
 function upsert(list, row) {
   const i = list.findIndex(x => x.id === row.id);
@@ -11,25 +17,27 @@ function upsert(list, row) {
   const copy = list.slice(); copy[i] = row; return copy;
 }
 
-const without = (list, id) => list.filter(x => x.id !== id);
-
-export function reduce(state, { table, type, row }) {
-  if (table === "lessons") {
-    if (type === "DELETE") {
-      // Les Entrées partent avec leur Leçon (on delete cascade côté base).
-      return { ...state, lessons: without(state.lessons, row.id), entries: state.entries.filter(e => e.lesson_id !== row.id) };
-    }
-    return { ...state, lessons: upsert(state.lessons, row).sort(byPosition) };
+// Retire des lignes et, en cascade, celles qui en dépendent.
+function drop(state, table, ids) {
+  let next = { ...state, [table]: state[table].filter(x => !ids.has(x.id)) };
+  for (const [child, key] of CHILDREN[table] || []) {
+    const gone = new Set(next[child].filter(x => ids.has(x[key])).map(x => x.id));
+    if (gone.size) next = drop(next, child, gone);
   }
-  if (table === "entries") {
-    return { ...state, entries: type === "DELETE" ? without(state.entries, row.id) : upsert(state.entries, row) };
-  }
-  if (table === "carnet") {
-    return type === "DELETE" ? state : { ...state, carnet: row };
-  }
-  return state;
+  return next;
 }
 
-// État complet à partir d'un chargement.
-export const fromLoad = ({ carnet, lessons, entries, members }) =>
-  ({ carnet: carnet || {}, lessons: (lessons || []).slice().sort(byPosition), entries: entries || [], members: members || [] });
+export function reduce(state, { table, type, row }) {
+  if (table === "carnet") return type === "DELETE" ? state : { ...state, carnet: row };
+  if (!LISTS.includes(table)) return state;
+  if (type === "DELETE") return drop(state, table, new Set([row.id]));
+  const list = upsert(state[table], row);
+  return { ...state, [table]: SORTS[table] ? list.sort(SORTS[table]) : list };
+}
+
+// État complet à partir d'un chargement : { carnet, members, lessons, entries, progress… }.
+export function fromLoad(loaded) {
+  const state = { ...emptyState(), carnet: loaded.carnet || {}, members: loaded.members || [] };
+  for (const t of LISTS) state[t] = (loaded[t] || []).slice().sort(SORTS[t] || (() => 0));
+  return state;
+}

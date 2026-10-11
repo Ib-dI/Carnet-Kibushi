@@ -3,9 +3,10 @@
 
 import { reduce, emptyState, fromLoad } from "./reduce.js";
 import { mediaTarget } from "./media-path.js";
+import { nextProgress } from "../revision/schedule.js";
 
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
-const TABLES = ["carnet", "lessons", "entries", "members"];
+const TABLES = ["carnet", "lessons", "entries", "members", "progress"];
 
 const ok = value => (value === undefined ? { ok: true } : { ok: true, value });
 const fail = (reason, extra) => ({ ok: false, reason, ...extra });
@@ -28,8 +29,9 @@ export function createCarnet({ db, storage, me }) {
   async function load() {
     pending = [];
     try {
-      const [carnet, lessons, entries, members] = await Promise.all(TABLES.map(t => db.list(t)));
-      state = fromLoad({ carnet: carnet[0], lessons, entries, members });
+      const rows = await Promise.all(TABLES.map(t => db.list(t)));
+      const loaded = Object.fromEntries(TABLES.map((t, i) => [t, rows[i]]));
+      state = fromLoad({ ...loaded, carnet: loaded.carnet[0] });
     } finally {
       const queued = pending; pending = null;
       queued.forEach(c => { state = reduce(state, c); });
@@ -165,6 +167,20 @@ export function createCarnet({ db, storage, me }) {
       apply({ table: "lessons", type: "DELETE", row: lesson });
       await removeFiles(paths);
       return ok();
+    },
+
+    // Révision du jour : enregistre la première réponse d'une séance sur une Carte, dans un Sens.
+    async recordAnswer(entryId, direction, knew, today) {
+      const current = state.progress.find(p => p.entry_id === entryId && p.direction === direction) || null;
+      try {
+        const row = await db.upsert("progress", { entry_id: entryId, direction, ...nextProgress(current, knew, today) },
+          ["member_email", "entry_id", "direction"]);
+        apply({ table: "progress", type: current ? "UPDATE" : "INSERT", row });
+        return ok(row);
+      } catch (e) {
+        console.warn("recordAnswer", e);
+        return fail("network");
+      }
     },
 
     async renameLangue(name) {

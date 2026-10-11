@@ -1,44 +1,75 @@
 import { mediaUrl } from "../lib/media.js";
 import { playPath, stopPlayback } from "../lib/player.js";
 import { carnet } from "./carnet-ref.js";
-import { createSession } from "../revision/session.js";
+import { createSession, createDailySession } from "../revision/session.js";
+import { dailyItems, localToday } from "../revision/schedule.js";
 import { $, $$, esc, colorVar, PLAY_ICON, lessonLabel } from "./dom.js";
 
-let session = null, dir = "fr", revLesson = "";
+// mode : "jour" (Révision du jour, Boîtes de Leitner) ou "libre" (sans planning, par Leçon).
+let session = null, mode = "jour", dir = "fr", revLesson = "", saveFailed = false;
 
-const buildDeck = () => { session = createSession(carnet.state.entries, { lessonId: revLesson }); };
+// Nombre de Cartes × Sens à revoir aujourd'hui (pour le bouton « Réviser »).
+export const dueCount = () => dailyItems(carnet.state.entries, carnet.state.progress, localToday()).length;
+
+function buildDeck() {
+  saveFailed = false;
+  if (mode === "libre") { session = createSession(carnet.state.entries, { lessonId: revLesson }); return; }
+  const today = localToday();
+  session = createDailySession(dailyItems(carnet.state.entries, carnet.state.progress, today), {
+    onFirstAnswer: async (it, knew) => {
+      const r = await carnet.recordAnswer(it.entry.id, it.dir, knew, today);
+      if (!r.ok && !saveFailed) { saveFailed = true; draw(); }
+    },
+  });
+}
 
 const flip = () => { session.flip(); draw(); };
 const yes = () => { session.knew(); draw(); };
 const no = () => { session.again(); draw(); };
+const setMode = m => { mode = m; buildDeck(); draw(); };
+
+function topHTML() {
+  const tab = (m, label) => `<button class="btn small ${mode === m ? "solid" : "ghost"}" type="button" data-mode="${m}" aria-pressed="${mode === m}">${label}</button>`;
+  const tabs = `<div class="rev-bar">${tab("jour", "Du jour")}${tab("libre", "Libre")}</div>`;
+  if (mode === "jour") return `<div class="label">Révision du jour · devine avant de retourner</div>${tabs}`;
+  const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
+  const dirBtn = (d, label) => `<button class="btn small ${dir === d ? "solid" : "ghost"}" type="button" data-dir="${d}" aria-pressed="${dir === d}">${label}</button>`;
+  return `<div class="label">Révision libre · devine avant de retourner</div>${tabs}${opts}
+    <div class="rev-bar">${dirBtn("fr", "Français → langue")}${dirBtn("lg", "Langue → français")}</div>`;
+}
 
 function draw() {
   const r = $("#rev");
-  const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
-  const top = `<div class="label">Révision · devine avant de retourner</div>${opts}
-    <div class="rev-bar"><button class="btn small ${dir === "fr" ? "solid" : "ghost"}" type="button" data-dir="fr" aria-pressed="${dir === "fr"}">Français → langue</button><button class="btn small ${dir === "lg" ? "solid" : "ghost"}" type="button" data-dir="lg" aria-pressed="${dir === "lg"}">Langue → français</button></div>`;
+  const top = topHTML();
+  const warn = saveFailed ? `<p class="err" role="alert">Certaines réponses n'ont pas été enregistrées. Vérifie ta connexion.</p>` : "";
   let focus = "#rClose";
   stopPlayback();
 
-  const e = session.current, flipped = session.flipped;
+  const cur = session.current, flipped = session.flipped;
   if (!session.total) {
-    r.innerHTML = top + `<p class="status">Aucune carte avec mot et traduction dans cette leçon.</p><div class="rev-bar"><button class="btn" type="button" id="rClose">Fermer</button></div>`;
-  } else if (!e) {
-    r.innerHTML = top + `<div class="card-face"><div class="big">${session.score} / ${session.total}</div><div class="q">cartes que tu savais déjà</div></div>
-      <div class="rev-bar"><button class="btn solid" type="button" id="rAgain">Recommencer</button><button class="btn" type="button" id="rClose">Fermer</button></div>`;
-    focus = "#rAgain";
+    const empty = mode === "jour"
+      ? `<div class="card-face"><div class="big">Rien à revoir aujourd'hui</div><div class="q">Reviens demain, ou fais une révision libre.</div></div>`
+      : `<p class="status">Aucune carte avec mot et traduction dans cette leçon.</p>`;
+    r.innerHTML = top + empty + `<div class="rev-bar"><button class="btn" type="button" id="rClose">Fermer</button></div>`;
+  } else if (!cur) {
+    const again = mode === "libre" ? `<button class="btn solid" type="button" id="rAgain">Recommencer</button>` : "";
+    r.innerHTML = top + `<div class="card-face"><div class="big">${session.score} / ${session.total}</div><div class="q">cartes que tu savais déjà${mode === "jour" ? " · à demain !" : ""}</div></div>${warn}
+      <div class="rev-bar">${again}<button class="btn" type="button" id="rClose">Fermer</button></div>`;
+    if (again) focus = "#rAgain";
   } else {
+    const e = mode === "jour" ? cur.entry : cur, d = mode === "jour" ? cur.dir : dir;
     const col = colorVar(carnet.state.lessons.find(l => l.id === e.lesson_id)?.color);
     const pron = e.pron ? `<div class="pron">[ ${esc(e.pron)} ]</div>` : "";
-    const front = dir === "fr"
+    const front = d === "fr"
       ? `<div class="q">Comment dit-on…</div><div class="big">${esc(e.translation)}</div>`
       : `<div class="q">Qu'est-ce que ça veut dire ?</div><div class="big" style="color:${col}">${esc(e.word)}</div>${pron}`;
-    const back = dir === "fr"
+    const back = d === "fr"
       ? `<div class="big" style="color:${col}">${esc(e.word)}</div>${pron}<div class="q">${esc(e.translation)}</div>`
       : `<div class="big">${esc(e.translation)}</div><div class="q">${esc(e.word)}</div>`;
-    const play = e.audio_path && (flipped || dir === "lg") ? `<button class="play" style="--c:${col}" type="button" id="rPlay" aria-label="Écouter">${PLAY_ICON}</button>` : "";
-    r.innerHTML = top + `<div class="count" aria-live="polite">Carte ${session.position + 1} sur ${session.count}</div>
-      <div class="card-face">${e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>
+    const play = e.audio_path && (flipped || d === "lg") ? `<button class="play" style="--c:${col}" type="button" id="rPlay" aria-label="Écouter">${PLAY_ICON}</button>` : "";
+    const sens = mode === "jour" ? ` · ${d === "fr" ? "français → langue" : "langue → français"}` : "";
+    r.innerHTML = top + `<div class="count" aria-live="polite">Carte ${session.position + 1} sur ${session.count}${sens}</div>
+      <div class="card-face">${e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>${warn}
       <div class="rev-bar">${flipped
         ? `<button class="btn" type="button" id="rNo">À revoir</button><button class="btn solid" type="button" id="rYes">Je savais</button>`
         : `<button class="btn solid" type="button" id="rFlip">Retourner la carte</button>`}<button class="btn ghost" type="button" id="rClose">Fermer</button></div>`;
@@ -50,7 +81,8 @@ function draw() {
     $("#rNo")?.addEventListener("click", no);
   }
 
-  $("#rL").onchange = ev => { revLesson = ev.target.value; buildDeck(); draw(); };
+  $$("[data-mode]", r).forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  const sel = $("#rL"); if (sel) sel.onchange = ev => { revLesson = ev.target.value; buildDeck(); draw(); };
   $$("[data-dir]", r).forEach(b => b.onclick = () => { dir = b.dataset.dir; draw(); });
   $("#rClose").onclick = () => $("#dlgRev").close();
   $("#rAgain")?.addEventListener("click", () => { buildDeck(); draw(); });
@@ -73,6 +105,7 @@ export function initReview() {
 
 export function openReview() {
   if (revLesson && !carnet.state.lessons.some(l => l.id === revLesson)) revLesson = "";
+  mode = dueCount() ? "jour" : "libre";
   buildDeck();
   $("#dlgRev").showModal();
   draw();

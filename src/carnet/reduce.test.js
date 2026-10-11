@@ -56,3 +56,24 @@ describe("reduce", () => {
     expect(reduce(s0, { table: "members", type: "INSERT", row: { email: "a" } })).toBe(s0);
   });
 });
+
+describe("reduce: progress", () => {
+  const prog = (id, entry_id, box = 1) => ({ id, entry_id, direction: "fr", box });
+
+  it("upserts progress rows by id", () => {
+    let s = reduce(emptyState(), { table: "progress", type: "INSERT", row: prog("p1", "x") });
+    s = reduce(s, { table: "progress", type: "UPDATE", row: prog("p1", "x", 3) });
+    expect(s.progress).toEqual([prog("p1", "x", 3)]);
+  });
+
+  it("deleting an Entrée drops its progress", () => {
+    const s0 = { ...emptyState(), entries: [entry("x", "a"), entry("y", "a")], progress: [prog("p1", "x"), prog("p2", "y")] };
+    const s = reduce(s0, { table: "entries", type: "DELETE", row: { id: "x" } });
+    expect(s.progress.map(p => p.id)).toEqual(["p2"]);
+  });
+
+  it("deleting a Leçon drops the progress of its Entrées", () => {
+    const s0 = { ...emptyState(), lessons: [lesson("a", 1)], entries: [entry("x", "a")], progress: [prog("p1", "x")] };
+    expect(reduce(s0, { table: "lessons", type: "DELETE", row: { id: "a" } }).progress).toEqual([]);
+  });
+});

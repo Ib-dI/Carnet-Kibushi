@@ -141,3 +141,26 @@ begin
 end $$;
 revoke execute on function public.hook_members_only(jsonb) from public, anon, authenticated;
 grant execute on function public.hook_members_only(jsonb) to supabase_auth_admin;
+
+-- Révision du jour : la Boîte de chaque Carte, par Membre et par Sens de révision.
+create table public.progress (
+  id uuid primary key default gen_random_uuid(),
+  member_email text not null default (auth.jwt() ->> 'email'),
+  entry_id uuid not null references public.entries(id) on delete cascade,
+  direction text not null check (direction in ('fr', 'lg')),
+  box smallint not null default 1 check (box between 1 and 5),
+  due date not null,
+  lapses integer not null default 0 check (lapses >= 0),
+  introduced_on date not null,
+  updated_at timestamptz not null default now(),
+  unique (member_email, entry_id, direction)
+);
+create index progress_entry_id_idx on public.progress (entry_id);
+revoke all on public.progress from anon;
+grant select, insert, update, delete on public.progress to authenticated;
+alter table public.progress enable row level security;
+-- Chaque Membre ne voit et n'écrit que ses propres progrès.
+create policy "chacun ses progrès" on public.progress for all to authenticated
+  using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'))
+  with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
+alter publication supabase_realtime add table public.progress;

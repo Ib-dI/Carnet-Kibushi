@@ -8,7 +8,7 @@ import { renderLogin, renderPrivate, renderSetup, loggedInWithCode, askPassword 
 import { headerHTML, bindHeader, renderHeader } from "./ui/header.js";
 import { renderLessons, setFilter, filtersHTML, bindFilters } from "./ui/lessons.js";
 import { openLesson } from "./ui/lesson-dialog.js";
-import { initReview, openReview } from "./ui/review.js";
+import { initReview, openReview, dueCount } from "./ui/review.js";
 import { reviewable } from "./revision/session.js";
 
 const app = $("#app");
@@ -43,7 +43,9 @@ function shell() {
 function render() {
   renderHeader();
   renderLessons();
-  $("#revBtn").disabled = !carnet.state.entries.some(reviewable);
+  const btn = $("#revBtn"), due = dueCount();
+  btn.disabled = !carnet.state.entries.some(reviewable);
+  btn.textContent = due ? `Réviser (${due})` : "Réviser";
 }
 
 function showCarnet(c) {

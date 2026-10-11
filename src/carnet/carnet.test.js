@@ -249,3 +249,51 @@ describe("resync", () => {
     expect(a.state.lessons.map(l => l.title)).toEqual(["Pendant le rechargement"]);
   });
 });
+
+describe("progress (Révision du jour)", () => {
+  const TODAY = "2026-10-11";
+  let a, lesson, entry;
+  beforeEach(async () => {
+    a = (await open(ALICE)).carnet;
+    lesson = (await a.saveLesson(null, { title: "Salutations" })).value;
+    entry = (await a.saveEntry(null, draft(lesson.id))).value;
+  });
+
+  it("records a first answer, then climbs a Boîte", async () => {
+    expect((await a.recordAnswer(entry.id, "fr", true, TODAY)).ok).toBe(true);
+    expect(a.state.progress).toMatchObject([{ entry_id: entry.id, direction: "fr", box: 2, due: "2026-10-14", member_email: ALICE }]);
+    await a.recordAnswer(entry.id, "fr", true, "2026-10-14");
+    expect(a.state.progress).toHaveLength(1);
+    expect(a.state.progress[0]).toMatchObject({ box: 3, due: "2026-10-21" });
+  });
+
+  it("keeps one progress per Sens", async () => {
+    await a.recordAnswer(entry.id, "fr", true, TODAY);
+    await a.recordAnswer(entry.id, "lg", false, TODAY);
+    expect(a.state.progress.map(p => [p.direction, p.box]).sort()).toEqual([["fr", 2], ["lg", 1]]);
+  });
+
+  it("each Membre only sees their own progress", async () => {
+    const b = (await open(BOB)).carnet;
+    await a.recordAnswer(entry.id, "fr", true, TODAY);
+    await b.recordAnswer(entry.id, "fr", false, TODAY);
+    await tick();
+    expect(a.state.progress.map(p => p.box)).toEqual([2]);
+    expect(b.state.progress.map(p => p.box)).toEqual([1]);
+    await a.resync();
+    expect(a.state.progress).toHaveLength(1);
+  });
+
+  it("deleting the Entrée drops its progress", async () => {
+    await a.recordAnswer(entry.id, "fr", true, TODAY);
+    await a.deleteEntry(entry);
+    expect(a.state.progress).toEqual([]);
+    expect(server.tables.progress).toEqual([]);
+  });
+
+  it("reports a failed write and keeps the state", async () => {
+    server.failNext("upsert");
+    expect(await a.recordAnswer(entry.id, "fr", true, TODAY)).toEqual({ ok: false, reason: "network" });
+    expect(a.state.progress).toEqual([]);
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSession, reviewable } from "./session.js";
+import { createSession, createDailySession, reviewable } from "./session.js";
 
 const e = (id, extra = {}) => ({ id, type: "mot", word: `w${id}`, translation: `t${id}`, lesson_id: "L1", ...extra });
 const noShuffle = () => 0.999999; // Fisher-Yates avec j = i : l'ordre reste celui d'origine
@@ -67,5 +67,24 @@ describe("createSession", () => {
     const s = createSession(entries, { rng: noShuffle });
     entries.length = 0;
     expect(s.current.id).toBe(1);
+  });
+});
+
+describe("createDailySession", () => {
+  const item = (id, dir) => ({ id: `${id}:${dir}`, entry: e(id), dir });
+
+  it("reports only the first answer on each item", () => {
+    const seen = [];
+    const s = createDailySession([item(1, "fr"), item(1, "lg")], { onFirstAnswer: (it, knew) => seen.push([it.id, knew]) });
+    s.flip(); s.again();   // 1:fr à revoir
+    s.flip(); s.knew();    // 1:lg su
+    s.flip(); s.knew();    // 1:fr su au deuxième passage : pas rapporté
+    expect(seen).toEqual([["1:fr", false], ["1:lg", true]]);
+    expect([s.score, s.total, s.current]).toEqual([1, 2, null]);
+  });
+
+  it("keeps the items' order (already shuffled by the planning)", () => {
+    const s = createDailySession([item(2, "lg"), item(1, "fr")]);
+    expect(s.current.id).toBe("2:lg");
   });
 });

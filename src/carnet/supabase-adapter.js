@@ -1,7 +1,7 @@
 // Adaptateur de production : db et storage du Carnet sur Supabase.
 
 const BUCKET = "media";
-const REALTIME_TABLES = ["carnet", "lessons", "entries"];
+const REALTIME_TABLES = ["carnet", "lessons", "entries", "progress"];
 
 const check = ({ data, error }) => { if (error) throw error; return data; };
 
@@ -10,6 +10,8 @@ export function createSupabaseAdapter(supabase) {
     list: async table => check(await supabase.from(table).select("*")),
     insert: async (table, row) => check(await supabase.from(table).insert(row).select().single()),
     update: async (table, id, patch) => check(await supabase.from(table).update(patch).eq("id", id).select().single()),
+    // La colonne du Membre prend sa valeur par défaut côté base (auth.jwt()), d'où son absence de `row`.
+    upsert: async (table, row, keys) => check(await supabase.from(table).upsert(row, { onConflict: keys.join(",") }).select().single()),
     remove: async (table, id) => { check(await supabase.from(table).delete().eq("id", id)); },
     subscribe(onEvent, onStatus) {
       const channel = supabase.channel("carnet");

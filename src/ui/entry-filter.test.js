@@ -26,6 +26,13 @@ describe("entryFilter", () => {
     expect(entryFilter({ noAudio: true })(e({ audio_path: null }))).toBe(true);
   });
 
+  it("« difficiles » keeps only the Membre's Cartes difficiles", () => {
+    const hard = new Set(["a"]);
+    expect(entryFilter({ hard: true }, hard)(e({ id: "a" }))).toBe(true);
+    expect(entryFilter({ hard: true }, hard)(e({ id: "b" }))).toBe(false);
+    expect(isFiltering({ hard: true })).toBe(true);
+  });
+
   it("combines filters", () => {
     const f = entryFilter({ query: "bonjour", type: "mot", noAudio: true });
     expect(f(e({ audio_path: null }))).toBe(true);

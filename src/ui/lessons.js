@@ -3,12 +3,13 @@ import { cachedUrl, mediaUrl } from "../lib/media.js";
 import { playPath, rebindPlaying } from "../lib/player.js";
 import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, TYPES, errorText } from "./dom.js";
 import { entryFilter, isFiltering } from "./entry-filter.js";
+import { hardEntryIds } from "../revision/schedule.js";
 import { openEntry } from "./entry-dialog.js";
 import { openLesson } from "./lesson-dialog.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
-let filter = { query: "", type: "", noAudio: false };
+let filter = { query: "", type: "", noAudio: false, hard: false };
 export function setFilter(patch) { filter = { ...filter, ...patch }; renderLessons(); }
 
 // Ligne de filtres sous la recherche : Type d'entrée et « sans Vocal ».
@@ -16,15 +17,17 @@ export function filtersHTML() {
   const chip = (attr, label, on) => `<button type="button" class="chip" ${attr} aria-pressed="${on}">${label}</button>`;
   return `<div class="chips filters" role="group" aria-label="Filtrer">
     ${chip('data-ftype=""', "Tout", !filter.type)}${TYPES.map(t => chip(`data-ftype="${t[0]}"`, t[1] + "s", filter.type === t[0])).join("")}
-    ${chip("data-fnoaudio", "Sans vocal", filter.noAudio)}</div>`;
+    ${chip("data-fnoaudio", "Sans vocal", filter.noAudio)}${chip("data-fhard", "Difficiles", filter.hard)}</div>`;
 }
 export function bindFilters(root) {
   const sync = () => {
     $$("[data-ftype]", root).forEach(b => b.setAttribute("aria-pressed", b.dataset.ftype === filter.type));
     $("[data-fnoaudio]", root).setAttribute("aria-pressed", filter.noAudio);
+    $("[data-fhard]", root).setAttribute("aria-pressed", filter.hard);
   };
   $$("[data-ftype]", root).forEach(b => b.onclick = () => { setFilter({ type: b.dataset.ftype }); sync(); });
   $("[data-fnoaudio]", root).onclick = () => { setFilter({ noAudio: !filter.noAudio }); sync(); };
+  $("[data-fhard]", root).onclick = () => { setFilter({ hard: !filter.hard }); sync(); };
 }
 
 function entryHTML(e) {
@@ -76,12 +79,13 @@ export function renderLessons() {
     return;
   }
 
+  const hard = hardEntryIds(state.progress);
   const byLesson = {};
   state.entries.forEach(e => (byLesson[e.lesson_id] ||= []).push(e));
   let html = '<div class="grid">', shown = 0;
   state.lessons.forEach((l, i) => {
     const all = (byLesson[l.id] || []).sort((a, b) => time(a) - time(b));
-    const es = all.filter(entryFilter(filter));
+    const es = all.filter(entryFilter(filter, hard));
     if (isFiltering(filter) && !es.length) return;
     shown++;
     html += `<article class="lesson" style="--c:${colorVar(l.color)}">
