@@ -4,7 +4,9 @@ import { themeButtonHTML, bindTheme } from "./theme.js";
 
 const BAD_EMAIL = "Écris une adresse e-mail complète, par exemple prenom@exemple.fr.";
 const NOT_MEMBER = "Cette adresse n'a pas accès au carnet. Demande à la personne qui l'a créé de l'ajouter.";
-const TOO_MANY = "Trop d'e-mails envoyés pour l'instant (2 par heure au maximum). Réessaie dans une heure, ou connecte-toi avec ton mot de passe si tu en as un.";
+const TOO_MANY = "Trop d'e-mails envoyés pour l'instant. Réessaie dans un moment, ou connecte-toi avec ton mot de passe si tu en as un.";
+// Supabase impose aussi un délai entre deux codes pour la même adresse (« after 42 seconds »).
+const wait = s => `Un code vient déjà de partir. Regarde ta boîte mail (et les indésirables), ou redemande-en un dans ${s} seconde${s > 1 ? "s" : ""}.`;
 const NETWORK = "Ça n'a pas marché. Vérifie ta connexion, puis réessaie.";
 
 // Après une connexion par code, on propose de choisir un mot de passe (voir askPassword).
@@ -36,7 +38,13 @@ function bindEyes(root) {
   });
 }
 
-const authError = e => e.status === 403 ? NOT_MEMBER : e.status === 429 ? TOO_MANY : NETWORK;
+export function authErrorText(e) {
+  if (e.status === 403) return NOT_MEMBER;
+  if (e.status !== 429) return NETWORK;
+  const secs = /after (\d+) seconds?/i.exec(e.message || "");
+  return secs ? wait(Math.max(1, +secs[1])) : TOO_MANY;
+}
+const authError = authErrorText;
 const validEmail = s => /^\S+@\S+\.\S+$/.test(s);
 
 // Connexion : e-mail + mot de passe ; en secours (première fois, oubli), un code reçu par e-mail
