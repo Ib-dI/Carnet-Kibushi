@@ -44,26 +44,41 @@ function editLang() {
 
 export function headerHTML() {
   return `
-    <div class="userbar"><span id="who"></span>${themeButtonHTML()}<button class="btn small ghost" type="button" id="password">Mot de passe</button><button class="btn small ghost" type="button" id="logout">Se déconnecter</button></div>
+    <div class="userbar">${themeButtonHTML()}
+      <details class="account" id="account">
+        <summary class="btn small ghost"><span id="who"></span><span aria-hidden="true">▾</span></summary>
+        <div class="menu">
+          <button type="button" class="menu-item" id="password">Mot de passe</button>
+          <button type="button" class="menu-item" id="logout">Se déconnecter</button>
+        </div>
+      </details>
+    </div>
     <header>
       <div class="label eyebrow">Carnet partagé</div>
       <h1 id="title">Mon carnet <em>de langue</em></h1>
       <div id="langZone"></div>
       <p class="sub">Les mots, les phrases, les vocaux et les images qu'on ajoute ensemble, rangés par leçon. Tout ce que l'une écrit, l'autre le voit tout de suite.</p>
     </header>
-    <section class="cadre" aria-label="Comment s'en servir">
-      <div class="label">Comment on s'en sert</div>
+    <details class="cadre" id="howto">
+      <summary class="label">Comment on s'en sert</summary>
       <ol>
         <li>Une leçon = un thème (salutations, famille, cuisine…).</li>
         <li>Chaque mot a sa notation à l'oreille, sa traduction et, si possible, un vocal.</li>
         <li>En révision, devine d'abord, puis retourne la carte pour comparer.</li>
       </ol>
       <q>Prédire, se tromper, corriger : c'est là que la mémoire s'ancre.</q>
-    </section>`;
+    </details>`;
 }
 
 export function bindHeader() {
+  const account = $("#account");
+  const closeMenu = () => { account.open = false; };
   $("#logout").onclick = () => supabase.auth.signOut();
-  $("#password").onclick = askPassword;
+  $("#password").onclick = () => { closeMenu(); askPassword(); };
+  // Le menu du compte se ferme en cliquant ailleurs ou avec Échap.
+  document.addEventListener("click", ev => { if (account.open && !account.contains(ev.target)) closeMenu(); });
+  account.addEventListener("keydown", ev => { if (ev.key === "Escape" && account.open) { closeMenu(); account.querySelector("summary").focus(); } });
   bindTheme($(".userbar"));
+  // L'encadré « Comment on s'en sert » est ouvert sur grand écran, replié sur téléphone.
+  $("#howto").open = window.matchMedia("(min-width: 521px)").matches;
 }
