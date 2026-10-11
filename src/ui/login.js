@@ -46,7 +46,7 @@ export function renderLogin(app, email = knownEmails()[0] || "") {
     app.innerHTML = `
       <div class="userbar">${themeButtonHTML()}</div>
       <div class="login">
-        <div class="label eyebrow">Carnet partagé · Langue orale</div>
+        <div class="label eyebrow">Carnet partagé</div>
         <h1>Mon carnet <em>de langue</em></h1>
         <form class="welcome" id="loginForm" novalidate>${body}
           <p class="status" id="loginMsg" role="status"></p>
@@ -169,7 +169,7 @@ export function askPassword() {
 export function renderPrivate(app, email) {
   app.innerHTML = `
     <div class="login">
-      <div class="label eyebrow">Carnet partagé · Langue orale</div>
+      <div class="label eyebrow">Carnet partagé</div>
       <div class="welcome">
         <h2>Ce carnet est privé</h2>
         <p>Demande à la personne qui l'a créé d'ajouter ton adresse${email ? ` (<strong>${esc(email)}</strong>)` : ""}.</p>

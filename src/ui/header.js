@@ -46,7 +46,7 @@ export function headerHTML() {
   return `
     <div class="userbar"><span id="who"></span>${themeButtonHTML()}<button class="btn small ghost" type="button" id="password">Mot de passe</button><button class="btn small ghost" type="button" id="logout">Se déconnecter</button></div>
     <header>
-      <div class="label eyebrow">Carnet partagé · Langue orale</div>
+      <div class="label eyebrow">Carnet partagé</div>
       <h1 id="title">Mon carnet <em>de langue</em></h1>
       <div id="langZone"></div>
       <p class="sub">Les mots, les phrases, les vocaux et les images qu'on ajoute ensemble, rangés par leçon. Tout ce que l'une écrit, l'autre le voit tout de suite.</p>

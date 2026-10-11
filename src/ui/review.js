@@ -29,6 +29,11 @@ const yes = () => { session.knew(); draw(); };
 const no = () => { session.again(); draw(); };
 const setMode = m => { mode = m; buildDeck(); draw(); };
 
+// Nom de la Langue choisi dans l'en-tête (« Kibushi »), ou « langue » s'il n'est pas encore donné.
+const langName = () => (carnet.state.carnet.langue || "").trim() || "langue";
+const capital = s => s.charAt(0).toUpperCase() + s.slice(1);
+const sensLabel = d => d === "fr" ? `Français → ${langName()}` : `${capital(langName())} → français`;
+
 function topHTML() {
   const tab = (m, label) => `<button class="btn small ${mode === m ? "solid" : "ghost"}" type="button" data-mode="${m}" aria-pressed="${mode === m}">${label}</button>`;
   const tabs = `<div class="rev-bar">${tab("jour", "Du jour")}${tab("libre", "Libre")}</div>`;
@@ -36,7 +41,7 @@ function topHTML() {
   const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
   const dirBtn = (d, label) => `<button class="btn small ${dir === d ? "solid" : "ghost"}" type="button" data-dir="${d}" aria-pressed="${dir === d}">${label}</button>`;
   return `<div class="label">Révision libre · devine avant de retourner</div>${tabs}${opts}
-    <div class="rev-bar">${dirBtn("fr", "Français → langue")}${dirBtn("lg", "Langue → français")}</div>`;
+    <div class="rev-bar">${dirBtn("fr", esc(sensLabel("fr")))}${dirBtn("lg", esc(sensLabel("lg")))}</div>`;
 }
 
 function draw() {
@@ -69,7 +74,7 @@ function draw() {
       : `<div class="big">${esc(e.translation)}</div><div class="q">${esc(e.word)}</div>`;
     const play = e.audio_path && (flipped || d === "lg") ? `<button class="play" style="--c:${col}" type="button" id="rPlay" aria-label="Écouter">${PLAY_ICON}</button>` : "";
     const tryBtn = flipped ? `<button class="mini" type="button" id="rTry">🎙 Mon essai</button>` : "";
-    const sens = mode === "jour" ? ` · ${d === "fr" ? "français → langue" : "langue → français"}` : "";
+    const sens = mode === "jour" ? ` · ${esc(sensLabel(d))}` : "";
     r.innerHTML = top + `<div class="count" aria-live="polite">Carte ${session.position + 1} sur ${session.count}${sens}</div>
       <div class="card-face">${e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${tryBtn}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>${warn}
       <div class="rev-bar">${flipped
