@@ -144,7 +144,9 @@ export function openEntry(e, lessonId) {
   /* ---------- Suppression ---------- */
   const confirmDelete = () => {
     keep();
-    $("#eDelZone").innerHTML = `<span class="confirm">Supprimer cette entrée ? <button class="btn small danger" type="button" id="eYes">Oui</button><button class="btn small ghost" type="button" id="eNo">Non</button></span>`;
+    const nc = carnet.commentsOf(e.id).length, nt = carnet.attemptsOf(e.id).length;
+    const also = [nc && `${nc} commentaire${nc > 1 ? "s" : ""}`, nt && `${nt} essai${nt > 1 ? "s" : ""}`].filter(Boolean).join(" et ");
+    $("#eDelZone").innerHTML = `<span class="confirm">${also ? `Supprimer cette entrée, et aussi ${also} ?` : "Supprimer cette entrée ?"} <button class="btn small danger" type="button" id="eYes">Oui</button><button class="btn small ghost" type="button" id="eNo">Non</button></span>`;
     $("#eYes").focus();
     $("#eNo").onclick = () => { keep(); draw(); $("#eDel").focus(); };
     $("#eYes").onclick = async () => {

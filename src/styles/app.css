@@ -170,3 +170,10 @@ textarea.inp{min-height:76px;resize:vertical}
 /* Prononciation : vocal de référence et Essais */
 .try-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .try-row span{font-weight:600}
+
+/* Commentaires et badge « nouveau » */
+.new-pill{display:inline-block;margin:0 6px;padding:1px 8px;border-radius:999px;background:var(--brique);color:var(--on-accent);font-size:.72rem;font-weight:800;letter-spacing:.02em;vertical-align:1px}
+.com-list{display:grid;gap:12px;max-height:45vh;overflow:auto}
+.com{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.com-meta{font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.com-body{white-space:pre-wrap;overflow-wrap:anywhere}

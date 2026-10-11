@@ -10,6 +10,7 @@ import { renderLessons, setFilter, filtersHTML, bindFilters } from "./ui/lessons
 import { openLesson } from "./ui/lesson-dialog.js";
 import { initReview, openReview, dueCount } from "./ui/review.js";
 import { reviewable } from "./revision/session.js";
+import { setSince } from "./ui/news-ref.js";
 
 const app = $("#app");
 
@@ -50,6 +51,8 @@ function render() {
 
 function showCarnet(c) {
   setCarnet(c);
+  // Badge « nouveau » : ce qui a été ajouté par les autres depuis la visite précédente.
+  c.beginVisit().then(since => { setSince(since); render(); });
   shell();
   c.onChange(render);
   render();

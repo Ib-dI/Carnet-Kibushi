@@ -374,3 +374,74 @@ describe("Essais", () => {
     expect(server.files.size).toBe(0);
   });
 });
+
+describe("Commentaires", () => {
+  let a, b, entry;
+  beforeEach(async () => {
+    a = (await open(ALICE)).carnet;
+    b = (await open(BOB)).carnet;
+    const lesson = (await a.saveLesson(null, { title: "Salutations" })).value;
+    entry = (await a.saveEntry(null, draft(lesson.id))).value;
+  });
+
+  it("adds a trimmed Commentaire, signed, seen by the other Membre", async () => {
+    const r = await b.addComment(entry.id, "  accent sur la 2e syllabe  ");
+    expect(r.ok).toBe(true);
+    await tick();
+    expect(a.commentsOf(entry.id)).toMatchObject([{ body: "accent sur la 2e syllabe", author_email: BOB }]);
+  });
+
+  it("lists Commentaires oldest first", async () => {
+    await a.addComment(entry.id, "un");
+    await b.addComment(entry.id, "deux");
+    await tick();
+    expect(a.commentsOf(entry.id).map(c => c.body)).toEqual(["un", "deux"]);
+  });
+
+  it("refuses an empty or too long Commentaire", async () => {
+    expect(await a.addComment(entry.id, "   ")).toEqual({ ok: false, reason: "empty" });
+    expect(await a.addComment(entry.id, "x".repeat(1001))).toEqual({ ok: false, reason: "too-long" });
+  });
+
+  it("deletes my own Commentaire, never someone else's", async () => {
+    const mine = (await a.addComment(entry.id, "à moi")).value;
+    const theirs = (await b.addComment(entry.id, "à Bob")).value;
+    await tick();
+    expect(await a.deleteComment(theirs)).toEqual({ ok: false, reason: "forbidden" });
+    expect(await a.deleteComment(mine)).toEqual({ ok: true });
+    await tick();
+    expect(b.commentsOf(entry.id).map(c => c.body)).toEqual(["à Bob"]);
+  });
+
+  it("deleting the Entrée removes its Commentaires", async () => {
+    await b.addComment(entry.id, "bientôt parti");
+    await tick();
+    await a.deleteEntry(entry);
+    expect(a.state.comments).toEqual([]);
+    expect(server.tables.comments).toEqual([]);
+  });
+});
+
+describe("visits", () => {
+  it("returns the previous visit and records the new one", async () => {
+    const a = (await open(ALICE)).carnet;
+    expect(await a.beginVisit("2026-10-10T10:00:00.000Z")).toBe(null);
+    expect(await a.beginVisit("2026-10-11T10:00:00.000Z")).toBe("2026-10-10T10:00:00.000Z");
+    expect(server.tables.visits).toHaveLength(1);
+  });
+
+  it("each Membre has their own last visit, shared across their devices", async () => {
+    const a = (await open(ALICE)).carnet, b = (await open(BOB)).carnet;
+    await a.beginVisit("2026-10-10T10:00:00.000Z");
+    expect(await b.beginVisit("2026-10-10T11:00:00.000Z")).toBe(null);
+    const otherDevice = (await open(ALICE)).carnet;
+    expect(await otherDevice.beginVisit("2026-10-11T09:00:00.000Z")).toBe("2026-10-10T10:00:00.000Z");
+  });
+
+  it("a failed write still returns the previous visit", async () => {
+    const a = (await open(ALICE)).carnet;
+    await a.beginVisit("2026-10-10T10:00:00.000Z");
+    server.failNext("upsert");
+    expect(await a.beginVisit("2026-10-11T10:00:00.000Z")).toBe("2026-10-10T10:00:00.000Z");
+  });
+});

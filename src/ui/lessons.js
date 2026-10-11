@@ -7,6 +7,8 @@ import { hardEntryIds } from "../revision/schedule.js";
 import { openEntry } from "./entry-dialog.js";
 import { openLesson } from "./lesson-dialog.js";
 import { openAttempt } from "./attempt-dialog.js";
+import { openComments } from "./comments-dialog.js";
+import { currentNews } from "./news-ref.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
@@ -31,12 +33,15 @@ export function bindFilters(root) {
   $("[data-fhard]", root).onclick = () => { setFilter({ hard: !filter.hard }); sync(); };
 }
 
-function entryHTML(e) {
+function entryHTML(e, fresh) {
   const tc = e.text_color ? `--tc:${colorVar(e.text_color)};` : "";
   const who = carnet.authorName(e.author_email);
   const tries = carnet.attemptsOf(e.id).length;
   const tryBtn = e.type === "conseil" ? "" : ` · <button class="mini" data-try="${esc(e.id)}" type="button">🎙 Essais${tries ? ` (${tries})` : ""}</button>`;
-  const metaLine = `<div class="meta">${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button>${tryBtn}</div>`;
+  const coms = carnet.commentsOf(e.id).length, newComs = fresh.comments.get(e.id) || 0;
+  const comBtn = ` · <button class="mini" data-comments="${esc(e.id)}" type="button">💬 ${coms ? `Commentaires (${coms})` : "Commenter"}</button>${newComs ? `<span class="new-pill">${newComs} nouveau${newComs > 1 ? "x" : ""}</span>` : ""}`;
+  const newPill = fresh.entries.has(e.id) ? `<span class="new-pill">nouveau</span>` : "";
+  const metaLine = `<div class="meta">${newPill}${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button>${tryBtn}${comBtn}</div>`;
   const play = e.audio_path ? `<button class="play" type="button" data-play="${esc(e.id)}" aria-label="Écouter ${esc(e.word || "le vocal")}">${PLAY_ICON}</button>` : "";
   const thumb = e.image_path ? `<img class="thumb" data-img="${esc(e.id)}" alt="Image pour ${esc(e.word || "cette entrée")}" role="button" tabindex="0">` : "";
   if (e.type === "conseil") {
@@ -82,7 +87,7 @@ export function renderLessons() {
     return;
   }
 
-  const hard = hardEntryIds(state.progress);
+  const hard = hardEntryIds(state.progress), fresh = currentNews();
   const byLesson = {};
   state.entries.forEach(e => (byLesson[e.lesson_id] ||= []).push(e));
   let html = '<div class="grid">', shown = 0;
@@ -98,7 +103,7 @@ export function renderLessons() {
         <h2>${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h2>
         <button class="edit" type="button" data-ledit="${esc(l.id)}">Modifier la leçon</button>
       </div>
-      <ul class="entries">${es.length ? es.map(entryHTML).join("") : `<li class="empty-l">Rien encore dans cette leçon.</li>`}</ul>
+      <ul class="entries">${es.length ? es.map(e => entryHTML(e, fresh)).join("") : `<li class="empty-l">Rien encore dans cette leçon.</li>`}</ul>
       <div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>
     </article>`;
   });
@@ -113,6 +118,7 @@ export function renderLessons() {
   const entry = id => carnet.state.entries.find(e => e.id === id);
   $$("[data-add]", list).forEach(b => b.onclick = () => openEntry(null, b.dataset.add));
   $$("[data-edit]", list).forEach(b => b.onclick = () => openEntry(entry(b.dataset.edit)));
+  $$("[data-comments]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.comments); e && openComments(e); });
   $$("[data-try]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.try); e && openAttempt(e); });
   $$("[data-ledit]", list).forEach(b => b.onclick = () => openLesson(carnet.state.lessons.find(l => l.id === b.dataset.ledit)));
   $$("[data-play]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.play); e && playPath(e.audio_path, b, e.id); });
@@ -132,7 +138,7 @@ export function renderLessons() {
 
 function focusSelector(el, list) {
   if (!el || !list.contains(el)) return null;
-  for (const k of ["edit", "try", "play", "ledit", "add", "img"]) {
+  for (const k of ["edit", "try", "comments", "play", "ledit", "add", "img"]) {
     const v = el.dataset?.[k];
     if (v) return `[data-${k}="${CSS.escape(v)}"]`;
   }

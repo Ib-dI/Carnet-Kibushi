@@ -36,7 +36,9 @@ index.html              page unique
 public/                 manifest et icônes
 supabase/schema.sql     tables, sécurité (RLS), temps réel, stockage
 src/main.js             démarrage, routage connexion / carnet
-src/carnet/             le Carnet : chargement, temps réel, écritures et Médias (testé avec `pnpm test`)
+src/carnet/             le Carnet : chargement, temps réel, écritures, Médias, Essais, Commentaires (testé avec `pnpm test`)
+src/revision/           Révision : séances, Boîtes de Leitner de la Révision du jour
+src/session/            entrée dans le Carnet selon la connexion
 src/lib/                client Supabase, affichage des médias, enregistreur, lecteur audio
 src/ui/                 en-tête, grille de leçons, fenêtres, révision, connexion
 src/styles/             tokens (couleurs, polices) et composants

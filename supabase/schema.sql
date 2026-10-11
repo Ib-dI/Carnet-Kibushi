@@ -188,3 +188,36 @@ create policy "chacun modifie ses essais" on public.attempts for update to authe
 create policy "chacun supprime ses essais" on public.attempts for delete to authenticated
   using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
 alter publication supabase_realtime add table public.attempts;
+
+-- Commentaires : messages courts signés sous une Entrée. On les supprime, on ne les modifie pas.
+create table public.comments (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.entries(id) on delete cascade,
+  author_email text not null default (auth.jwt() ->> 'email'),
+  body text not null check (char_length(body) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+create index comments_entry_id_idx on public.comments (entry_id, created_at);
+revoke all on public.comments from anon;
+grant select, insert, delete on public.comments to authenticated;
+alter table public.comments enable row level security;
+create policy "membres lisent commentaires" on public.comments for select to authenticated
+  using ((select private.is_member()));
+create policy "chacun écrit ses commentaires" on public.comments for insert to authenticated
+  with check ((select private.is_member()) and author_email = (select auth.jwt() ->> 'email'));
+create policy "chacun supprime ses commentaires" on public.comments for delete to authenticated
+  using ((select private.is_member()) and author_email = (select auth.jwt() ->> 'email'));
+alter publication supabase_realtime add table public.comments;
+
+-- Dernière visite de chaque Membre (pour le badge « nouveau »), commune à ses appareils.
+create table public.visits (
+  id uuid primary key default gen_random_uuid(),
+  member_email text not null unique default (auth.jwt() ->> 'email'),
+  seen_at timestamptz not null
+);
+revoke all on public.visits from anon;
+grant select, insert, update on public.visits to authenticated;
+alter table public.visits enable row level security;
+create policy "chacun sa visite" on public.visits for all to authenticated
+  using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'))
+  with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));

@@ -2,11 +2,11 @@
 // Un même serveur peut servir plusieurs Membres connectés en même temps.
 
 // Tables dont les lignes appartiennent à un Membre (colonne qui le porte) : seul lui peut les écrire.
-const OWNED = { progress: "member_email", attempts: "member_email" };
+const OWNED = { progress: "member_email", attempts: "member_email", comments: "author_email", visits: "member_email" };
 // Parmi elles, celles que les autres Membres ne voient même pas (RLS).
-const PRIVATE = new Set(["progress"]);
+const PRIVATE = new Set(["progress", "visits"]);
 // Suppressions en cascade (on delete cascade côté base) : table → [table enfant, colonne de lien].
-const CHILDREN = { lessons: [["entries", "lesson_id"]], entries: [["progress", "entry_id"], ["attempts", "entry_id"]] };
+const CHILDREN = { lessons: [["entries", "lesson_id"]], entries: [["progress", "entry_id"], ["attempts", "entry_id"], ["comments", "entry_id"]] };
 
 export function createMemoryServer({ members = [], langue = "" } = {}) {
   const tables = {
@@ -16,6 +16,8 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
     entries: [],
     progress: [],
     attempts: [],
+    comments: [],
+    visits: [],
   };
   const files = new Map();
   const subscribers = new Set();

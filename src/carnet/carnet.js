@@ -6,7 +6,8 @@ import { mediaTarget } from "./media-path.js";
 import { nextProgress } from "../revision/schedule.js";
 
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
-const TABLES = ["carnet", "lessons", "entries", "members", "progress", "attempts"];
+const TABLES = ["carnet", "lessons", "entries", "members", "progress", "attempts", "comments", "visits"];
+export const MAX_COMMENT = 1000;
 
 const ok = value => (value === undefined ? { ok: true } : { ok: true, value });
 const fail = (reason, extra) => ({ ok: false, reason, ...extra });
@@ -64,6 +65,7 @@ export function createCarnet({ db, storage, me }) {
 
   return {
     get state() { return state; },
+    me,
 
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
@@ -222,6 +224,46 @@ export function createCarnet({ db, storage, me }) {
       apply({ table: "attempts", type: "DELETE", row: attempt });
       await removeFiles([attempt.audio_path]);
       return ok();
+    },
+
+    // Les Commentaires d'une Entrée, du plus ancien au plus récent.
+    commentsOf(entryId) {
+      return state.comments.filter(c => c.entry_id === entryId)
+        .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
+    },
+
+    async addComment(entryId, text) {
+      const body = (text || "").trim();
+      if (!body) return fail("empty");
+      if (body.length > MAX_COMMENT) return fail("too-long");
+      try {
+        const row = await db.insert("comments", { entry_id: entryId, body });
+        apply({ table: "comments", type: "INSERT", row });
+        return ok(row);
+      } catch (e) {
+        console.warn("addComment", e);
+        return fail("network");
+      }
+    },
+
+    // On ne supprime que ses propres Commentaires ; on ne les modifie pas.
+    async deleteComment(comment) {
+      if (!sameEmail(comment.author_email, me)) return fail("forbidden");
+      try { await db.remove("comments", comment.id); }
+      catch (e) { console.warn("deleteComment", e); return fail("network"); }
+      apply({ table: "comments", type: "DELETE", row: comment });
+      return ok();
+    },
+
+    // Début d'une visite : renvoie la date de la visite précédente (null la première fois),
+    // puis enregistre `now` comme dernière visite, pour tous les appareils du Membre.
+    async beginVisit(now = new Date().toISOString()) {
+      const since = state.visits[0]?.seen_at || null;
+      try {
+        const row = await db.upsert("visits", { seen_at: now }, ["member_email"]);
+        apply({ table: "visits", type: since ? "UPDATE" : "INSERT", row });
+      } catch (e) { console.warn("beginVisit", e); }
+      return since;
     },
 
     async renameLangue(name) {
