@@ -164,3 +164,27 @@ create policy "chacun ses progrès" on public.progress for all to authenticated
   using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'))
   with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
 alter publication supabase_realtime add table public.progress;
+
+-- Essais : l'enregistrement d'un Membre qui imite le Vocal d'une Entrée (un par Membre et par Entrée).
+create table public.attempts (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.entries(id) on delete cascade,
+  member_email text not null default (auth.jwt() ->> 'email'),
+  audio_path text not null,
+  created_at timestamptz not null default now(),
+  unique (entry_id, member_email)
+);
+revoke all on public.attempts from anon;
+grant select, insert, update, delete on public.attempts to authenticated;
+alter table public.attempts enable row level security;
+-- Tous les Membres entendent les Essais ; chacun n'écrit que les siens.
+create policy "membres lisent essais" on public.attempts for select to authenticated
+  using ((select private.is_member()));
+create policy "chacun ajoute ses essais" on public.attempts for insert to authenticated
+  with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
+create policy "chacun modifie ses essais" on public.attempts for update to authenticated
+  using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'))
+  with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
+create policy "chacun supprime ses essais" on public.attempts for delete to authenticated
+  using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
+alter publication supabase_realtime add table public.attempts;

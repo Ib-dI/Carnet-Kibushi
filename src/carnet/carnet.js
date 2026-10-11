@@ -6,7 +6,7 @@ import { mediaTarget } from "./media-path.js";
 import { nextProgress } from "../revision/schedule.js";
 
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
-const TABLES = ["carnet", "lessons", "entries", "members", "progress"];
+const TABLES = ["carnet", "lessons", "entries", "members", "progress", "attempts"];
 
 const ok = value => (value === undefined ? { ok: true } : { ok: true, value });
 const fail = (reason, extra) => ({ ok: false, reason, ...extra });
@@ -57,6 +57,10 @@ export function createCarnet({ db, storage, me }) {
     if (!list.length) return;
     try { await storage.remove(list); } catch (e) { console.warn("removeFiles", e); }
   }
+
+  // Tous les fichiers d'Entrées : leurs Médias et les Essais de chacun.
+  const filesOf = entries => entries.flatMap(e =>
+    [e.image_path, e.audio_path, ...state.attempts.filter(t => t.entry_id === e.id).map(t => t.audio_path)]);
 
   return {
     get state() { return state; },
@@ -133,10 +137,12 @@ export function createCarnet({ db, storage, me }) {
     },
 
     async deleteEntry(entry) {
+      const paths = filesOf([entry]);
+      // Progrès et Essais partent avec l'Entrée (on delete cascade) ; leurs fichiers, c'est à nous.
       try { await db.remove("entries", entry.id); }
       catch (e) { console.warn("deleteEntry", e); return fail("network"); }
       apply({ table: "entries", type: "DELETE", row: entry });
-      await removeFiles([entry.image_path, entry.audio_path]);
+      await removeFiles(paths);
       return ok();
     },
 
@@ -160,7 +166,7 @@ export function createCarnet({ db, storage, me }) {
     },
 
     async deleteLesson(lesson) {
-      const paths = state.entries.filter(e => e.lesson_id === lesson.id).flatMap(e => [e.image_path, e.audio_path]);
+      const paths = filesOf(state.entries.filter(e => e.lesson_id === lesson.id));
       // Les Entrées partent avec la Leçon (on delete cascade).
       try { await db.remove("lessons", lesson.id); }
       catch (e) { console.warn("deleteLesson", e); return fail("network"); }
@@ -181,6 +187,41 @@ export function createCarnet({ db, storage, me }) {
         console.warn("recordAnswer", e);
         return fail("network");
       }
+    },
+
+    // Les Essais d'une Entrée, le mien d'abord.
+    attemptsOf(entryId) {
+      return state.attempts.filter(t => t.entry_id === entryId)
+        .sort((x, y) => Number(!sameEmail(x.member_email, me)) - Number(!sameEmail(y.member_email, me)));
+    },
+
+    // Mon Essai sur une Entrée : remplace le précédent, dont le fichier part ensuite.
+    async saveAttempt(entryId, blob) {
+      if (blob.size > MAX_MEDIA_BYTES) return fail("too-large", { media: "audio" });
+      const old = state.attempts.find(t => t.entry_id === entryId && sameEmail(t.member_email, me));
+      const { path, contentType } = mediaTarget(blob, "audio");
+      try {
+        await storage.upload(path, blob, contentType);
+      } catch (e) { console.warn("saveAttempt", e); return fail("network"); }
+      try {
+        const row = await db.upsert("attempts", { entry_id: entryId, audio_path: path }, ["entry_id", "member_email"]);
+        apply({ table: "attempts", type: old ? "UPDATE" : "INSERT", row });
+        if (old && old.audio_path !== path) await removeFiles([old.audio_path]);
+        return ok(row);
+      } catch (e) {
+        console.warn("saveAttempt", e);
+        await removeFiles([path]);
+        return fail("network");
+      }
+    },
+
+    async deleteAttempt(attempt) {
+      if (!sameEmail(attempt.member_email, me)) return fail("forbidden");
+      try { await db.remove("attempts", attempt.id); }
+      catch (e) { console.warn("deleteAttempt", e); return fail("network"); }
+      apply({ table: "attempts", type: "DELETE", row: attempt });
+      await removeFiles([attempt.audio_path]);
+      return ok();
     },
 
     async renameLangue(name) {

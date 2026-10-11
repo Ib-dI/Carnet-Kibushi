@@ -1,10 +1,12 @@
 // Adaptateur en mémoire : un faux Supabase partagé, pour les tests.
 // Un même serveur peut servir plusieurs Membres connectés en même temps.
 
-// Tables dont chaque Membre ne voit que ses propres lignes (RLS), et colonne qui porte le Membre.
-const OWNED = { progress: "member_email" };
+// Tables dont les lignes appartiennent à un Membre (colonne qui le porte) : seul lui peut les écrire.
+const OWNED = { progress: "member_email", attempts: "member_email" };
+// Parmi elles, celles que les autres Membres ne voient même pas (RLS).
+const PRIVATE = new Set(["progress"]);
 // Suppressions en cascade (on delete cascade côté base) : table → [table enfant, colonne de lien].
-const CHILDREN = { lessons: [["entries", "lesson_id"]], entries: [["progress", "entry_id"]] };
+const CHILDREN = { lessons: [["entries", "lesson_id"]], entries: [["progress", "entry_id"], ["attempts", "entry_id"]] };
 
 export function createMemoryServer({ members = [], langue = "" } = {}) {
   const tables = {
@@ -13,6 +15,7 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
     lessons: [],
     entries: [],
     progress: [],
+    attempts: [],
   };
   const files = new Map();
   const subscribers = new Set();
@@ -28,7 +31,9 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
   };
   const same = (a, b) => (a || "").toLowerCase() === (b || "").toLowerCase();
   const isMember = email => tables.members.some(m => same(m.email, email));
-  const visible = (table, row, email) => !OWNED[table] || same(row[OWNED[table]], email);
+  const visible = (table, row, email) => !PRIVATE.has(table) || same(row[OWNED[table]], email);
+  const writable = (table, row, email) => !OWNED[table] || same(row[OWNED[table]], email);
+  const owner = (table, row) => PRIVATE.has(table) ? row[OWNED[table]] : null;
   // Le temps réel respecte RLS : une ligne privée ne part qu'à son Membre.
   const broadcast = (change, owner) => subscribers.forEach(s =>
     s.connected && (!owner || same(s.email, owner)) && s.onEvent(structuredClone(change)));
@@ -39,7 +44,7 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
       tables[child].filter(r => r[key] === row.id).forEach(r => removeRow(child, r));
     }
     tables[table] = tables[table].filter(r => r !== row);
-    broadcast({ table, type: "DELETE", row: { id: row.id } }, OWNED[table] && row[OWNED[table]]);
+    broadcast({ table, type: "DELETE", row: { id: row.id } }, owner(table, row));
   }
 
   function connect(email) {
@@ -59,15 +64,15 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
         fail("insert"); guard();
         const saved = stamp(table, row);
         tables[table].push(saved);
-        broadcast({ table, type: "INSERT", row: saved }, OWNED[table] && email);
+        broadcast({ table, type: "INSERT", row: saved }, owner(table, saved));
         return structuredClone(saved);
       },
       async update(table, id, patch) {
         fail("update"); guard();
-        const row = tables[table].find(r => r.id === id && visible(table, r, email));
+        const row = tables[table].find(r => r.id === id && writable(table, r, email));
         if (!row) throw new Error("introuvable");
         Object.assign(row, patch);
-        broadcast({ table, type: "UPDATE", row: { ...row } }, OWNED[table] && email);
+        broadcast({ table, type: "UPDATE", row: { ...row } }, owner(table, row));
         return structuredClone(row);
       },
       // Insère ou met à jour la ligne qui a les mêmes valeurs pour `keys` (le Membre est ajouté d'office).
@@ -77,12 +82,13 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
         const existing = tables[table].find(r => keys.every(k => r[k] === full[k]));
         if (!existing) return db.insert(table, row);
         Object.assign(existing, row);
-        broadcast({ table, type: "UPDATE", row: { ...existing } }, OWNED[table] && email);
+        broadcast({ table, type: "UPDATE", row: { ...existing } }, owner(table, existing));
         return structuredClone(existing);
       },
       async remove(table, id) {
         fail("remove"); guard();
-        const row = tables[table].find(r => r.id === id && visible(table, r, email));
+        // Comme RLS : supprimer une ligne d'un autre Membre ne fait rien, sans erreur.
+        const row = tables[table].find(r => r.id === id && writable(table, r, email));
         if (row) removeRow(table, row);
       },
       subscribe(onEvent, onStatus) {

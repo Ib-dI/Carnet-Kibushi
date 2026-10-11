@@ -126,7 +126,9 @@ export function renderLogin(app, email = knownEmails()[0] || "") {
 // Choisir ou changer son mot de passe : proposé après une connexion par code, et depuis l'en-tête.
 export function askPassword() {
   codeLogin = false;
-  if ($("#dlgPass")) return;
+  const prev = $("#dlgPass");
+  if (prev?.open) return;
+  prev?.remove();
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="dlgPass" aria-label="Mot de passe"><form class="dlg" id="formPass" novalidate>
       <h3>Choisis un mot de passe</h3>

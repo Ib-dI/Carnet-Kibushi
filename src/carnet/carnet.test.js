@@ -297,3 +297,80 @@ describe("progress (Révision du jour)", () => {
     expect(a.state.progress).toEqual([]);
   });
 });
+
+describe("Essais", () => {
+  let a, b, lesson, entry;
+  beforeEach(async () => {
+    a = (await open(ALICE)).carnet;
+    b = (await open(BOB)).carnet;
+    lesson = (await a.saveLesson(null, { title: "Salutations" })).value;
+    entry = (await a.saveEntry(null, draft(lesson.id, { audio: { replace: blob() } }))).value;
+  });
+  const mine = (c, email) => c.state.attempts.filter(t => t.member_email === email);
+
+  it("saves my Essai, visible to the other Membre", async () => {
+    const r = await b.saveAttempt(entry.id, blob());
+    expect(r.ok).toBe(true);
+    expect(r.value.audio_path).toMatch(/^audio\//);
+    await tick();
+    expect(mine(a, BOB)).toHaveLength(1);
+    expect(a.attemptsOf(entry.id).map(t => t.member_email)).toEqual([BOB]);
+  });
+
+  it("a new Essai replaces mine and removes the old file", async () => {
+    const first = (await b.saveAttempt(entry.id, blob())).value;
+    const second = (await b.saveAttempt(entry.id, blob())).value;
+    expect(mine(b, BOB)).toHaveLength(1);
+    expect(second.audio_path).not.toBe(first.audio_path);
+    expect(server.files.has(first.audio_path)).toBe(false);
+    expect(server.files.has(second.audio_path)).toBe(true);
+  });
+
+  it("each Membre has their own Essai on the same Entrée", async () => {
+    await a.saveAttempt(entry.id, blob());
+    await b.saveAttempt(entry.id, blob());
+    await tick();
+    expect(a.attemptsOf(entry.id).map(t => t.member_email).sort()).toEqual([ALICE, BOB]);
+  });
+
+  it("refuses an Essai over 10 Mo, and cleans up when the row write fails", async () => {
+    expect(await b.saveAttempt(entry.id, blob(10 * 1024 * 1024 + 1))).toEqual({ ok: false, reason: "too-large", media: "audio" });
+    const before = server.files.size;
+    server.failNext("upsert");
+    expect(await b.saveAttempt(entry.id, blob())).toEqual({ ok: false, reason: "network" });
+    expect(server.files.size).toBe(before);
+  });
+
+  it("deletes my Essai and its file", async () => {
+    const t = (await b.saveAttempt(entry.id, blob())).value;
+    expect(await b.deleteAttempt(t)).toEqual({ ok: true });
+    expect(mine(b, BOB)).toEqual([]);
+    expect(server.files.has(t.audio_path)).toBe(false);
+  });
+
+  it("cannot delete someone else's Essai", async () => {
+    const t = (await b.saveAttempt(entry.id, blob())).value;
+    await tick();
+    await a.deleteAttempt(t);
+    expect(server.tables.attempts).toHaveLength(1);
+    expect(server.files.has(t.audio_path)).toBe(true);
+  });
+
+  it("deleting the Entrée removes all its Essais and their files", async () => {
+    const t1 = (await a.saveAttempt(entry.id, blob())).value;
+    const t2 = (await b.saveAttempt(entry.id, blob())).value;
+    await tick();
+    await a.deleteEntry(entry);
+    expect(a.state.attempts).toEqual([]);
+    expect(server.tables.attempts).toEqual([]);
+    expect(server.files.has(t1.audio_path) || server.files.has(t2.audio_path)).toBe(false);
+    expect(server.files.size).toBe(0);
+  });
+
+  it("deleting the Leçon removes the Essais' files too", async () => {
+    await b.saveAttempt(entry.id, blob());
+    await tick();
+    await a.deleteLesson(lesson);
+    expect(server.files.size).toBe(0);
+  });
+});

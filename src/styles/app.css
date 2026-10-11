@@ -166,3 +166,7 @@ textarea.inp{min-height:76px;resize:vertical}
 /* Filtres sous la recherche */
 .filters{margin:-8px 0 20px}
 .filters .chip{padding:5px 12px;font-size:.88rem}
+
+/* Prononciation : vocal de référence et Essais */
+.try-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.try-row span{font-weight:600}

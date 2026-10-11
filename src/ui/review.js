@@ -4,6 +4,7 @@ import { carnet } from "./carnet-ref.js";
 import { createSession, createDailySession } from "../revision/session.js";
 import { dailyItems, localToday } from "../revision/schedule.js";
 import { $, $$, esc, colorVar, PLAY_ICON, lessonLabel } from "./dom.js";
+import { openAttempt } from "./attempt-dialog.js";
 
 // mode : "jour" (Révision du jour, Boîtes de Leitner) ou "libre" (sans planning, par Leçon).
 let session = null, mode = "jour", dir = "fr", revLesson = "", saveFailed = false;
@@ -67,15 +68,17 @@ function draw() {
       ? `<div class="big" style="color:${col}">${esc(e.word)}</div>${pron}<div class="q">${esc(e.translation)}</div>`
       : `<div class="big">${esc(e.translation)}</div><div class="q">${esc(e.word)}</div>`;
     const play = e.audio_path && (flipped || d === "lg") ? `<button class="play" style="--c:${col}" type="button" id="rPlay" aria-label="Écouter">${PLAY_ICON}</button>` : "";
+    const tryBtn = flipped ? `<button class="mini" type="button" id="rTry">🎙 Mon essai</button>` : "";
     const sens = mode === "jour" ? ` · ${d === "fr" ? "français → langue" : "langue → français"}` : "";
     r.innerHTML = top + `<div class="count" aria-live="polite">Carte ${session.position + 1} sur ${session.count}${sens}</div>
-      <div class="card-face">${e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>${warn}
+      <div class="card-face">${e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${tryBtn}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>${warn}
       <div class="rev-bar">${flipped
         ? `<button class="btn" type="button" id="rNo">À revoir</button><button class="btn solid" type="button" id="rYes">Je savais</button>`
         : `<button class="btn solid" type="button" id="rFlip">Retourner la carte</button>`}<button class="btn ghost" type="button" id="rClose">Fermer</button></div>`;
     focus = flipped ? "#rYes" : "#rFlip";
     if (e.image_path) mediaUrl(e.image_path).then(u => { const i = $("#rImg"); if (i) { if (u) i.src = u; else i.remove(); } });
     const p = $("#rPlay"); if (p) p.onclick = () => playPath(e.audio_path, p, "rev");
+    $("#rTry")?.addEventListener("click", () => openAttempt(e));
     $("#rFlip")?.addEventListener("click", flip);
     $("#rYes")?.addEventListener("click", yes);
     $("#rNo")?.addEventListener("click", no);

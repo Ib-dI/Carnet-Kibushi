@@ -6,6 +6,7 @@ import { entryFilter, isFiltering } from "./entry-filter.js";
 import { hardEntryIds } from "../revision/schedule.js";
 import { openEntry } from "./entry-dialog.js";
 import { openLesson } from "./lesson-dialog.js";
+import { openAttempt } from "./attempt-dialog.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
@@ -33,7 +34,9 @@ export function bindFilters(root) {
 function entryHTML(e) {
   const tc = e.text_color ? `--tc:${colorVar(e.text_color)};` : "";
   const who = carnet.authorName(e.author_email);
-  const metaLine = `<div class="meta">${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button></div>`;
+  const tries = carnet.attemptsOf(e.id).length;
+  const tryBtn = e.type === "conseil" ? "" : ` · <button class="mini" data-try="${esc(e.id)}" type="button">🎙 Essais${tries ? ` (${tries})` : ""}</button>`;
+  const metaLine = `<div class="meta">${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button>${tryBtn}</div>`;
   const play = e.audio_path ? `<button class="play" type="button" data-play="${esc(e.id)}" aria-label="Écouter ${esc(e.word || "le vocal")}">${PLAY_ICON}</button>` : "";
   const thumb = e.image_path ? `<img class="thumb" data-img="${esc(e.id)}" alt="Image pour ${esc(e.word || "cette entrée")}" role="button" tabindex="0">` : "";
   if (e.type === "conseil") {
@@ -110,6 +113,7 @@ export function renderLessons() {
   const entry = id => carnet.state.entries.find(e => e.id === id);
   $$("[data-add]", list).forEach(b => b.onclick = () => openEntry(null, b.dataset.add));
   $$("[data-edit]", list).forEach(b => b.onclick = () => openEntry(entry(b.dataset.edit)));
+  $$("[data-try]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.try); e && openAttempt(e); });
   $$("[data-ledit]", list).forEach(b => b.onclick = () => openLesson(carnet.state.lessons.find(l => l.id === b.dataset.ledit)));
   $$("[data-play]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.play); e && playPath(e.audio_path, b, e.id); });
   rebindPlaying(list);
@@ -128,7 +132,7 @@ export function renderLessons() {
 
 function focusSelector(el, list) {
   if (!el || !list.contains(el)) return null;
-  for (const k of ["edit", "play", "ledit", "add", "img"]) {
+  for (const k of ["edit", "try", "play", "ledit", "add", "img"]) {
     const v = el.dataset?.[k];
     if (v) return `[data-${k}="${CSS.escape(v)}"]`;
   }
