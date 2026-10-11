@@ -199,3 +199,18 @@ textarea.inp{min-height:76px;resize:vertical}
 .rev-size .chip{padding:4px 12px;font-size:.85rem}
 .play.big-play{width:72px;height:72px;margin:8px auto}
 .play.big-play svg{width:26px;height:26px}
+
+/* Écran « Progrès » */
+.progress-view .big{font-size:1.6rem}
+.upcoming{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;min-height:96px}
+.up-day{display:grid;justify-items:center;gap:2px}
+.up-bar{width:70%;min-height:2px;border-radius:4px 4px 0 0;background:var(--canard)}
+.up-n{font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums}
+.up-d{font-size:.72rem;color:var(--muted)}
+.mastery{display:grid;gap:8px}
+.m-row{display:grid;grid-template-columns:minmax(0,1fr) 40% 3.2em;gap:10px;align-items:center;text-align:left}
+.m-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.m-track{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.m-track i{display:block;height:100%;background:var(--c,var(--canard))}
+.m-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:.85rem}
+.card-face.progress-view{min-height:0;padding:18px}

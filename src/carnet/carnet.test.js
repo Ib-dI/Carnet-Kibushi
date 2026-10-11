@@ -445,3 +445,22 @@ describe("visits", () => {
     expect(await a.beginVisit("2026-10-11T10:00:00.000Z")).toBe("2026-10-10T10:00:00.000Z");
   });
 });
+
+describe("review days", () => {
+  it("records each day once, only for me", async () => {
+    const a = (await open(ALICE)).carnet, b = (await open(BOB)).carnet;
+    await a.markReviewDay("2026-10-10");
+    await a.markReviewDay("2026-10-11");
+    await a.markReviewDay("2026-10-11");
+    await b.markReviewDay("2026-10-11");
+    await tick();
+    expect(a.state.review_days.map(d => d.day).sort()).toEqual(["2026-10-10", "2026-10-11"]);
+    expect(server.tables.review_days).toHaveLength(3);
+  });
+
+  it("a failed write is not fatal", async () => {
+    const a = (await open(ALICE)).carnet;
+    server.failNext("upsert");
+    expect(await a.markReviewDay("2026-10-11")).toEqual({ ok: false, reason: "network" });
+  });
+});

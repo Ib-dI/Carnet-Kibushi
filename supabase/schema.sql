@@ -221,3 +221,17 @@ alter table public.visits enable row level security;
 create policy "chacun sa visite" on public.visits for all to authenticated
   using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'))
   with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
+
+-- Jours où chaque Membre a révisé (série de jours d'affilée sur l'écran « Progrès »).
+create table public.review_days (
+  id uuid primary key default gen_random_uuid(),
+  member_email text not null default (auth.jwt() ->> 'email'),
+  day date not null,
+  unique (member_email, day)
+);
+revoke all on public.review_days from anon;
+grant select, insert, update on public.review_days to authenticated;
+alter table public.review_days enable row level security;
+create policy "chacun ses jours de révision" on public.review_days for all to authenticated
+  using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'))
+  with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));

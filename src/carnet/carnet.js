@@ -6,7 +6,7 @@ import { mediaTarget } from "./media-path.js";
 import { nextProgress } from "../revision/schedule.js";
 
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
-const TABLES = ["carnet", "lessons", "entries", "members", "progress", "attempts", "comments", "visits"];
+const TABLES = ["carnet", "lessons", "entries", "members", "progress", "attempts", "comments", "visits", "review_days"];
 export const MAX_COMMENT = 1000;
 
 const ok = value => (value === undefined ? { ok: true } : { ok: true, value });
@@ -225,6 +225,19 @@ export function createCarnet({ db, storage, me }) {
       apply({ table: "attempts", type: "DELETE", row: attempt });
       await removeFiles([attempt.audio_path]);
       return ok();
+    },
+
+    // Un jour où j'ai révisé (pour la série de jours d'affilée). Une seule ligne par jour.
+    async markReviewDay(day) {
+      if (state.review_days.some(d => d.day === day)) return ok();
+      try {
+        const row = await db.upsert("review_days", { day }, ["member_email", "day"]);
+        apply({ table: "review_days", type: "INSERT", row });
+        return ok(row);
+      } catch (e) {
+        console.warn("markReviewDay", e);
+        return fail("network");
+      }
     },
 
     // Les Commentaires d'une Entrée, du plus ancien au plus récent.

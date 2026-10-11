@@ -2,7 +2,7 @@
 // d'une écriture locale ou du temps réel. Un changement = { table, type, row }.
 
 // Tables tenues en liste (lignes repérées par `id`) ; `carnet` est une ligne unique.
-const LISTS = ["lessons", "entries", "progress", "attempts", "comments", "visits"];
+const LISTS = ["lessons", "entries", "progress", "attempts", "comments", "visits", "review_days"];
 // Ce qui part avec une ligne supprimée (on delete cascade côté base) : [table enfant, colonne de lien].
 const CHILDREN = { lessons: [["entries", "lesson_id"]], entries: [["progress", "entry_id"], ["attempts", "entry_id"], ["comments", "entry_id"]] };
 

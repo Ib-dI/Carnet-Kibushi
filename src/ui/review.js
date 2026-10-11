@@ -5,8 +5,9 @@ import { createSession, createDailySession } from "../revision/session.js";
 import { dailyItems, localToday, nextProgress, nextReviews, daysBetween } from "../revision/schedule.js";
 import { $, $$, esc, colorVar, PLAY_ICON, lessonLabel } from "./dom.js";
 import { openAttempt } from "./attempt-dialog.js";
+import { streak, upcoming, mastery, MASTERED_BOX } from "../revision/stats.js";
 
-// mode : "jour" (Révision du jour, Boîtes de Leitner) ou "libre" (sans planning, par Leçon).
+// mode : "jour" (Révision du jour, Boîtes de Leitner), "libre" (toutes les Cartes, par Leçon) ou "progres".
 // flash : où va la Carte qu'on vient de noter (« revient dans 3 jours »), affiché sur la suivante.
 // revSize : nombre de Cartes de la Révision du jour (0 = tout ce qui est à revoir).
 let session = null, mode = "jour", dir = "fr", revLesson = "", revSize = 0, saveFailed = false, flash = "";
@@ -25,6 +26,7 @@ function record(entryId, d, answer) {
   const next = nextProgress(current, answer, today);
   flash = answer === "again" ? "↺ À revoir : elle repasse tout à l'heure, puis demain"
     : `✓ Revient ${when(daysBetween(today, next.due))}`;
+  carnet.markReviewDay(today);
   carnet.recordAnswer(entryId, d, answer, today).then(r => {
     if (!r.ok && !saveFailed) { saveFailed = true; draw(); }
   });
@@ -32,6 +34,7 @@ function record(entryId, d, answer) {
 
 function buildDeck() {
   saveFailed = false; flash = "";
+  if (mode === "progres") { session = null; return; }
   if (mode === "libre") {
     // En écoute, seules les Cartes qui ont un Vocal.
     const pool = dir === "ec" ? carnet.state.entries.filter(e => e.audio_path) : carnet.state.entries;
@@ -58,7 +61,8 @@ const sensLabel = d => d === "fr" ? `Français → ${langName()}` : d === "lg" ?
 
 function topHTML() {
   const tab = (m, label) => `<button class="btn small ${mode === m ? "solid" : "ghost"}" type="button" data-mode="${m}" aria-pressed="${mode === m}">${label}</button>`;
-  const tabs = `<div class="rev-bar">${tab("jour", "Du jour")}${tab("libre", "Libre")}</div>`;
+  const tabs = `<div class="rev-bar">${tab("jour", "Du jour")}${tab("libre", "Libre")}${tab("progres", "Progrès")}</div>`;
+  if (mode === "progres") return `<div class="label">Progrès</div>${tabs}`;
   const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
   if (mode === "jour") {
     const size = n => `<button class="chip" type="button" data-size="${n}" aria-pressed="${revSize === n}">${n || "Tout"}</button>`;
@@ -70,6 +74,31 @@ function topHTML() {
     <div class="rev-bar">${dirBtn("fr", esc(sensLabel("fr")))}${dirBtn("lg", esc(sensLabel("lg")))}${dirBtn("ec", "🎧 Écoute")}</div>`;
 }
 
+const DAY_NAMES = ["auj.", "demain"];
+const dayLabel = (d, i) => DAY_NAMES[i] || new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short" });
+
+function progressHTML() {
+  const { entries, progress, lessons, review_days } = carnet.state;
+  const today = localToday();
+  const days = streak(review_days.map(d => d.day), today);
+  const next = upcoming(entries, progress, today, 7);
+  const most = Math.max(1, ...next.map(n => n.count));
+  const bars = next.map((n, i) => `<div class="up-day"><div class="up-bar" style="height:${Math.round((60 * n.count) / most)}px"></div>
+    <div class="up-n">${n.count}</div><div class="up-d">${esc(dayLabel(n.day, i))}</div></div>`).join("");
+  const rows = mastery(lessons, entries, progress).filter(m => m.items).map(m => `<div class="m-row">
+    <span class="m-name">${esc(lessonLabel(m.lesson))}</span>
+    <span class="m-track" role="img" aria-label="${m.percent} % sues"><i style="width:${m.percent}%;--c:${colorVar(m.lesson.color)}"></i></span>
+    <span class="m-pct">${m.percent} %</span></div>`).join("");
+  return `<div class="card-face progress-view">
+      <div class="big">${days ? `🔥 ${days} jour${days > 1 ? "s" : ""} d'affilée` : "Pas encore de série"}</div>
+      <div class="q">${days ? "Révise chaque jour pour la prolonger." : "Fais ta Révision du jour pour commencer une série."}</div>
+    </div>
+    <div class="label">À revoir les 7 prochains jours</div>
+    <div class="upcoming">${bars}</div>
+    <div class="label">Maîtrise par leçon <small>(cartes en boîte ${MASTERED_BOX} ou plus)</small></div>
+    <div class="mastery">${rows || `<p class="status">Pas encore de carte à réviser.</p>`}</div>`;
+}
+
 function draw() {
   const r = $("#rev");
   const top = topHTML();
@@ -77,6 +106,13 @@ function draw() {
   let focus = "#rClose";
   stopPlayback();
 
+  if (mode === "progres") {
+    r.innerHTML = top + progressHTML() + `<div class="rev-bar"><button class="btn" type="button" id="rClose">Fermer</button></div>`;
+    $$("[data-mode]", r).forEach(b => b.onclick = () => setMode(b.dataset.mode));
+    $("#rClose").onclick = () => $("#dlgRev").close();
+    $("#rClose").focus();
+    return;
+  }
   const cur = session.current, flipped = session.flipped;
   const note = flash ? `<p class="status rev-flash" role="status">${esc(flash)}</p>` : "";
   if (!session.total) {
