@@ -178,10 +178,11 @@ export function createCarnet({ db, storage, me }) {
     },
 
     // Révision du jour : enregistre la première réponse d'une séance sur une Carte, dans un Sens.
-    async recordAnswer(entryId, direction, knew, today) {
+    // answer : "again" | "knew" | "easy" (voir revision/schedule.js).
+    async recordAnswer(entryId, direction, answer, today) {
       const current = state.progress.find(p => p.entry_id === entryId && p.direction === direction) || null;
       try {
-        const row = await db.upsert("progress", { entry_id: entryId, direction, ...nextProgress(current, knew, today) },
+        const row = await db.upsert("progress", { entry_id: entryId, direction, ...nextProgress(current, answer, today) },
           ["member_email", "entry_id", "direction"]);
         apply({ table: "progress", type: current ? "UPDATE" : "INSERT", row });
         return ok(row);

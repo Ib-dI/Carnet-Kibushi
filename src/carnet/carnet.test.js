@@ -260,23 +260,23 @@ describe("progress (Révision du jour)", () => {
   });
 
   it("records a first answer, then climbs a Boîte", async () => {
-    expect((await a.recordAnswer(entry.id, "fr", true, TODAY)).ok).toBe(true);
+    expect((await a.recordAnswer(entry.id, "fr", "knew", TODAY)).ok).toBe(true);
     expect(a.state.progress).toMatchObject([{ entry_id: entry.id, direction: "fr", box: 2, due: "2026-10-14", member_email: ALICE }]);
-    await a.recordAnswer(entry.id, "fr", true, "2026-10-14");
+    await a.recordAnswer(entry.id, "fr", "knew", "2026-10-14");
     expect(a.state.progress).toHaveLength(1);
     expect(a.state.progress[0]).toMatchObject({ box: 3, due: "2026-10-21" });
   });
 
   it("keeps one progress per Sens", async () => {
-    await a.recordAnswer(entry.id, "fr", true, TODAY);
-    await a.recordAnswer(entry.id, "lg", false, TODAY);
+    await a.recordAnswer(entry.id, "fr", "knew", TODAY);
+    await a.recordAnswer(entry.id, "lg", "again", TODAY);
     expect(a.state.progress.map(p => [p.direction, p.box]).sort()).toEqual([["fr", 2], ["lg", 1]]);
   });
 
   it("each Membre only sees their own progress", async () => {
     const b = (await open(BOB)).carnet;
-    await a.recordAnswer(entry.id, "fr", true, TODAY);
-    await b.recordAnswer(entry.id, "fr", false, TODAY);
+    await a.recordAnswer(entry.id, "fr", "knew", TODAY);
+    await b.recordAnswer(entry.id, "fr", "again", TODAY);
     await tick();
     expect(a.state.progress.map(p => p.box)).toEqual([2]);
     expect(b.state.progress.map(p => p.box)).toEqual([1]);
@@ -285,7 +285,7 @@ describe("progress (Révision du jour)", () => {
   });
 
   it("deleting the Entrée drops its progress", async () => {
-    await a.recordAnswer(entry.id, "fr", true, TODAY);
+    await a.recordAnswer(entry.id, "fr", "knew", TODAY);
     await a.deleteEntry(entry);
     expect(a.state.progress).toEqual([]);
     expect(server.tables.progress).toEqual([]);
@@ -293,7 +293,7 @@ describe("progress (Révision du jour)", () => {
 
   it("reports a failed write and keeps the state", async () => {
     server.failNext("upsert");
-    expect(await a.recordAnswer(entry.id, "fr", true, TODAY)).toEqual({ ok: false, reason: "network" });
+    expect(await a.recordAnswer(entry.id, "fr", "knew", TODAY)).toEqual({ ok: false, reason: "network" });
     expect(a.state.progress).toEqual([]);
   });
 });

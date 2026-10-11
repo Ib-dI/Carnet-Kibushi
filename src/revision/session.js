@@ -10,19 +10,20 @@ const shuffle = (list, rng) => {
   return list;
 };
 
-// Paquet générique : chaque élément a un `id`. onFirstAnswer(élément, knew) n'est appelé
+// Paquet générique : chaque élément a un `id`. onFirstAnswer(élément, réponse) n'est appelé
 // qu'à la première réponse sur un élément (c'est elle qui compte pour le score et les Boîtes).
+// Réponses : "again" (À revoir), "knew" (Je savais), "easy" (Par cœur).
 function deck(items, { onFirstAnswer = () => {} } = {}) {
   const list = items.slice();
   const total = list.length;
   const answered = new Set(), missed = new Set();
   let pos = 0, flipped = false, score = 0;
 
-  const answer = knew => {
+  const answer = kind => {
     const it = list[pos];
-    if (!answered.has(it.id)) { answered.add(it.id); onFirstAnswer(it, knew); }
-    if (knew && !missed.has(it.id)) score++;
-    if (!knew) { missed.add(it.id); list.push(it); }
+    if (!answered.has(it.id)) { answered.add(it.id); onFirstAnswer(it, kind); }
+    if (kind !== "again" && !missed.has(it.id)) score++;
+    if (kind === "again") { missed.add(it.id); list.push(it); }
     pos++; flipped = false;
   };
 
@@ -35,14 +36,16 @@ function deck(items, { onFirstAnswer = () => {} } = {}) {
     total,
     flip() { if (list[pos]) flipped = true; },
     // « Je savais » : ne compte au score que si l'élément n'a jamais été à revoir.
-    knew() { if (flipped) answer(true); },
+    knew() { if (flipped) answer("knew"); },
+    // « Par cœur » : comme « Je savais » pour la séance ; la Boîte, elle, saute à la dernière.
+    easy() { if (flipped) answer("easy"); },
     // « À revoir » : l'élément repasse en fin de paquet.
-    again() { if (flipped) answer(false); },
+    again() { if (flipped) answer("again"); },
   };
 }
 
-export function createSession(entries, { lessonId = "", rng = Math.random } = {}) {
-  return deck(shuffle(entries.filter(e => reviewable(e) && (!lessonId || e.lesson_id === lessonId)), rng));
+export function createSession(entries, { lessonId = "", rng = Math.random, onFirstAnswer } = {}) {
+  return deck(shuffle(entries.filter(e => reviewable(e) && (!lessonId || e.lesson_id === lessonId)), rng), { onFirstAnswer });
 }
 
 export const createDailySession = (items, { onFirstAnswer } = {}) => deck(items, { onFirstAnswer });

@@ -10,6 +10,8 @@ const LAST_BOX = 5;
 export const NEW_PER_DAY = 10;   // nouvelles Cartes × Sens par jour
 const HARD_LAPSES = 2;
 
+export const daysBetween = (from, to) => Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86400000);
+
 export function addDays(day, n) {
   const d = new Date(`${day}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
@@ -19,12 +21,13 @@ export function addDays(day, n) {
 // Date du jour, locale (le jour change à minuit chez le Membre, pas à minuit UTC).
 export const localToday = () => new Date().toLocaleDateString("sv-SE");
 
-// Le progrès après une réponse. Seule la première réponse d'une séance compte.
-export function nextProgress(progress, knew, today) {
+// Le progrès après une réponse : "again" (À revoir), "knew" (Je savais) ou "easy" (Par cœur).
+// Seule la première réponse d'une séance compte.
+export function nextProgress(progress, answer, today) {
   const introduced_on = progress?.introduced_on || today;
   const lapses = progress?.lapses || 0;
-  if (!knew) return { box: 1, due: addDays(today, INTERVALS[1]), lapses: lapses + 1, introduced_on };
-  const box = Math.min((progress?.box || 1) + 1, LAST_BOX);
+  if (answer === "again") return { box: 1, due: addDays(today, INTERVALS[1]), lapses: lapses + 1, introduced_on };
+  const box = answer === "easy" ? LAST_BOX : Math.min((progress?.box || 1) + 1, LAST_BOX);
   return { box, due: addDays(today, INTERVALS[box]), lapses, introduced_on };
 }
 
@@ -51,6 +54,15 @@ export function dailyItems(entries, progress, today, { newPerDay = NEW_PER_DAY, 
   const introducedToday = progress.filter(p => p.introduced_on === today).length;
   const room = Math.max(0, newPerDay - introducedToday);
   return shuffle([...due, ...fresh.slice(0, room)], rng);
+}
+
+// Le prochain jour où des Cartes reviennent, et combien : { day, count }, ou null.
+export function nextReviews(entries, progress, today) {
+  const cards = new Set(entries.filter(reviewable).map(e => e.id));
+  const later = progress.filter(p => cards.has(p.entry_id) && p.due > today);
+  if (!later.length) return null;
+  const day = later.reduce((min, p) => (p.due < min ? p.due : min), later[0].due);
+  return { day, count: later.filter(p => p.due === day).length };
 }
 
 // Cartes difficiles : au moins HARD_LAPSES « À revoir » dans un Sens.

@@ -62,6 +62,13 @@ describe("createSession", () => {
     expect([s.score, s.total]).toEqual([2, 3]);
   });
 
+  it("reports first answers in Révision libre too", () => {
+    const seen = [];
+    const s = createSession([e(1)], { rng: noShuffle, onFirstAnswer: (it, a) => seen.push([it.id, a]) });
+    s.flip(); s.again(); s.flip(); s.knew();
+    expect(seen).toEqual([[1, "again"]]);
+  });
+
   it("keeps its own copy of the Cartes", () => {
     const entries = [e(1)];
     const s = createSession(entries, { rng: noShuffle });
@@ -79,8 +86,17 @@ describe("createDailySession", () => {
     s.flip(); s.again();   // 1:fr à revoir
     s.flip(); s.knew();    // 1:lg su
     s.flip(); s.knew();    // 1:fr su au deuxième passage : pas rapporté
-    expect(seen).toEqual([["1:fr", false], ["1:lg", true]]);
+    expect(seen).toEqual([["1:fr", "again"], ["1:lg", "knew"]]);
     expect([s.score, s.total, s.current]).toEqual([1, 2, null]);
+  });
+
+  it("« Par cœur » counts as known and is reported as easy", () => {
+    const seen = [];
+    const s = createDailySession([item(1, "fr")], { onFirstAnswer: (it, a) => seen.push(a) });
+    s.easy(); // pas encore retournée : ignoré
+    s.flip(); s.easy();
+    expect(seen).toEqual(["easy"]);
+    expect([s.score, s.current]).toEqual([1, null]);
   });
 
   it("keeps the items' order (already shuffled by the planning)", () => {

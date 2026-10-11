@@ -192,3 +192,6 @@ textarea.inp{min-height:76px;resize:vertical}
 .theme-btn{display:inline-flex;align-items:center;gap:6px}
 .theme-btn span{font-size:.85em}
 @media (max-width:480px){ .theme-btn span{display:none} }
+
+/* Révision : où va la Carte qu'on vient de noter */
+.rev-flash{text-align:center;font-weight:700;color:var(--canard)}
