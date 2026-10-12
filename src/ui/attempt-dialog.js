@@ -4,17 +4,18 @@ import { playPath, stopPlayback, rebindPlaying } from "../lib/player.js";
 import { startRecording, canRecord, fmtTime, meterHTML, setMeter, MAX_SECONDS } from "../lib/recorder.js";
 import { carnet } from "./carnet-ref.js";
 import { $, esc, PLAY_ICON, errorText } from "./dom.js";
+import { openSheet } from "./sheet.js";
 
 const MIC_BLOCKED = "Le micro est bloqué. Autorise-le dans les réglages du navigateur.";
 const MIC_FAILED = "Le micro ne répond pas.";
 const MIC_SILENT = "Aucun son n'a été capté : le micro n'est sans doute pas autorisé pour ce navigateur. Sur Mac : Réglages Système → Confidentialité et sécurité → Micro. Ou essaie dans Chrome ou Safari.";
 
 export function openAttempt(entry) {
-  const prev = $("#dlgTry");
-  if (prev?.open) return;
-  prev?.cleanup?.();   // une fenêtre fermée dont l'événement « close » n'est pas encore passé
-  document.body.insertAdjacentHTML("beforeend", `<dialog id="dlgTry" aria-label="Prononciation"><div class="dlg" id="tryBody"></div></dialog>`);
-  const dlg = $("#dlgTry"), body = $("#tryBody");
+  let off = () => {};
+  const dlg = openSheet({ id: "dlgTry", label: "Prononciation", html: `<div class="dlg" id="tryBody"></div>`,
+    onClose: () => { off(); rec?.cancel(); rec = null; stopPlayback(); } });
+  if (!dlg) return;
+  const body = $("#tryBody");
   let rec = null, secs = 0, status = "", isErr = false, busy = false;
 
   const playBtn = (key, label) => `<button class="play" style="--c:var(--canard)" type="button" data-play="${esc(key)}" aria-label="${esc(label)}">${PLAY_ICON}</button>`;
@@ -93,11 +94,7 @@ export function openAttempt(entry) {
     say(res.ok ? "Ton essai est enregistré. Écoute-le à côté du vocal de référence." : errorText(res), !res.ok);
   }
 
-  const off = carnet.onChange(() => { if (!rec) draw(); });
-  dlg.addEventListener("click", ev => { if (ev.target === dlg) dlg.close(); });
-  dlg.cleanup = () => { off(); rec?.cancel(); rec = null; stopPlayback(); dlg.remove(); };
-  dlg.addEventListener("close", dlg.cleanup);
+  off = carnet.onChange(() => { if (!rec) draw(); });
   draw();
-  dlg.showModal();
   $("#tryRec")?.focus();
 }

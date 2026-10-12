@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase.js";
 import { $, esc } from "./dom.js";
 import { themeButtonHTML, bindTheme } from "./theme.js";
+import { openSheet } from "./sheet.js";
 
 const BAD_EMAIL = "Écris une adresse e-mail complète, par exemple prenom@exemple.fr.";
 const NOT_MEMBER = "Cette adresse n'a pas accès au carnet. Demande à la personne qui l'a créé de l'ajouter.";
@@ -137,11 +138,7 @@ export function renderLogin(app, email = knownEmails()[0] || "") {
 // Choisir ou changer son mot de passe : proposé après une connexion par code, et depuis l'en-tête.
 export function askPassword() {
   codeLogin = false;
-  const prev = $("#dlgPass");
-  if (prev?.open) return;
-  prev?.remove();
-  document.body.insertAdjacentHTML("beforeend", `
-    <dialog id="dlgPass" aria-label="Mot de passe"><form class="dlg" id="formPass" novalidate>
+  const dlg = openSheet({ id: "dlgPass", label: "Mot de passe", closeOnBackdrop: false, html: `<form class="dlg" id="formPass" novalidate>
       <h3>Choisis un mot de passe</h3>
       <p class="status">La prochaine fois, tu ouvriras le carnet avec ton e-mail et ce mot de passe, sans passer par ta boîte mail.</p>
       <label class="field"><span>Nouveau mot de passe <small>(8 caractères au moins)</small></span>
@@ -150,10 +147,10 @@ export function askPassword() {
       <div class="actions"><span></span><div class="right">
         <button class="btn ghost" type="button" id="passLater">Plus tard</button>
         <button class="btn solid" id="passSave">Enregistrer</button></div></div>
-    </form></dialog>`);
-  const dlg = $("#dlgPass"), err = $("#passErr");
+    </form>` });
+  if (!dlg) return;
+  const err = $("#passErr");
   bindEyes(dlg);
-  dlg.addEventListener("close", () => dlg.remove());
   $("#passLater").onclick = () => dlg.close();
   $("#formPass").onsubmit = async ev => {
     ev.preventDefault();
@@ -170,7 +167,6 @@ export function askPassword() {
     }
     dlg.close();
   };
-  dlg.showModal();
   $("#newPass").focus();
 }
 

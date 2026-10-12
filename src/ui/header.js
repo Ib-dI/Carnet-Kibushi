@@ -4,6 +4,7 @@ import { $, esc, errorText } from "./dom.js";
 import { askPassword } from "./login.js";
 import { themeButtonHTML, bindTheme } from "./theme.js";
 import { routeHash } from "./route.js";
+import { openSheet } from "./sheet.js";
 
 const langOf = () => (carnet.state.carnet.langue || "").trim();
 const deLang = l => l ? (/^[aeiouyhéèêàâîôû]/i.test(l) ? "d’" : "de ") + l : "de langue";
@@ -32,28 +33,15 @@ export function topbarHTML() {
     </div>`;
 }
 
-// Petite fenêtre créée à la demande ; renvoie la <dialog>, retirée de la page à la fermeture.
-function sheet(id, label, html) {
-  const prev = $(`#${id}`);
-  if (prev?.open) return null;
-  prev?.remove();
-  document.body.insertAdjacentHTML("beforeend", `<dialog id="${id}" aria-label="${esc(label)}">${html}</dialog>`);
-  const dlg = $(`#${id}`);
-  dlg.addEventListener("close", () => dlg.remove());
-  dlg.addEventListener("click", ev => { if (ev.target === dlg) dlg.close(); });
-  dlg.showModal();
-  return dlg;
-}
-
 function openLangName() {
-  const dlg = sheet("dlgLang", "Nom de la langue", `<form class="dlg" id="langForm" novalidate>
+  const dlg = openSheet({ id: "dlgLang", label: "Nom de la langue", closeOnBackdrop: false, html: `<form class="dlg" id="langForm" novalidate>
       <h3>Nom de la langue</h3>
       <label class="field"><span>La langue que tu apprends</span>
         <input id="langInp" class="inp big" maxlength="60" placeholder="Ex. Kibushi" value="${esc(langOf())}"></label>
       <div class="err" id="langErr" role="alert" hidden></div>
       <div class="actions"><span></span><div class="right">
         <button class="btn ghost" type="button" id="langCancel">Annuler</button><button class="btn solid">Enregistrer</button></div></div>
-    </form>`);
+    </form>` });
   if (!dlg) return;
   $("#langInp").focus();
   $("#langCancel").onclick = () => dlg.close();
@@ -75,8 +63,8 @@ export function howtoHTML() {
 }
 
 function openHelp() {
-  const dlg = sheet("dlgHelp", "Aide", `<div class="dlg"><h3>Comment on s'en sert</h3>${howtoHTML()}
-      <div class="actions"><span></span><div class="right"><button class="btn solid" type="button" id="helpClose">Compris</button></div></div></div>`);
+  const dlg = openSheet({ id: "dlgHelp", label: "Aide", html: `<div class="dlg"><h3>Comment on s'en sert</h3>${howtoHTML()}
+      <div class="actions"><span></span><div class="right"><button class="btn solid" type="button" id="helpClose">Compris</button></div></div></div>` });
   if (dlg) $("#helpClose").onclick = () => dlg.close();
 }
 

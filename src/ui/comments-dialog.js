@@ -2,14 +2,14 @@
 import { carnet } from "./carnet-ref.js";
 import { MAX_COMMENT } from "../carnet/carnet.js";
 import { $, esc, errorText } from "./dom.js";
+import { openSheet } from "./sheet.js";
 
 const when = t => new Date(t).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function openComments(entry) {
-  const prev = $("#dlgCom");
-  if (prev?.open) return;
-  prev?.cleanup?.();   // une fenêtre fermée dont l'événement « close » n'est pas encore passé
-  document.body.insertAdjacentHTML("beforeend", `<dialog id="dlgCom" aria-label="Commentaires"><form class="dlg" id="comForm" novalidate>
+  let off = () => {};
+  const dlg = openSheet({ id: "dlgCom", label: "Commentaires", closeOnBackdrop: false, onClose: () => off(),
+    html: `<form class="dlg" id="comForm" novalidate>
       <h3 id="comTitle"></h3>
       <div class="com-list" id="comList" aria-live="polite"></div>
       <label class="field"><span>Ton commentaire</span>
@@ -18,8 +18,9 @@ export function openComments(entry) {
       <div class="actions"><span></span><div class="right">
         <button class="btn ghost" type="button" id="comClose">Fermer</button>
         <button class="btn solid" id="comSend">Envoyer</button></div></div>
-    </form></dialog>`);
-  const dlg = $("#dlgCom"), list = $("#comList"), err = $("#comErr");
+    </form>` });
+  if (!dlg) return;
+  const list = $("#comList"), err = $("#comErr");
   const showErr = text => { err.hidden = !text; err.textContent = text || ""; };
 
   // Seule la liste se redessine (temps réel) : le texte en cours de saisie reste intact.
@@ -58,10 +59,7 @@ export function openComments(entry) {
     body.focus();
   };
 
-  const off = carnet.onChange(drawList);
-  dlg.cleanup = () => { off(); dlg.remove(); };
-  dlg.addEventListener("close", dlg.cleanup);
+  off = carnet.onChange(drawList);
   drawList();
-  dlg.showModal();
   $("#comBody").focus();
 }

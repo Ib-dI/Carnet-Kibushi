@@ -15,6 +15,7 @@ import { openReview } from "./review.js";
 import { openBlock } from "./block-dialog.js";
 import { howtoHTML } from "./header.js";
 import { onLongPress } from "./long-press.js";
+import { openSheet } from "./sheet.js";
 import { blockHTML, BLOCK_TYPES } from "./rich.js";
 import { insertPositions } from "../carnet/page.js";
 import { lessonStatus } from "../revision/stats.js";
@@ -140,8 +141,7 @@ function renderHome() {
 
 // Menu d'une Leçon (appui long sur sa tuile) : modifier, ou supprimer avec confirmation.
 function openLessonMenu(l) {
-  $("#dlgLMenu")?.remove();
-  document.body.insertAdjacentHTML("beforeend", `<dialog id="dlgLMenu" aria-label="${esc(l.title)}"><div class="dlg lmenu" style="--c:${colorVar(l.color)}">
+  const dlg = openSheet({ id: "dlgLMenu", label: l.title, html: `<div class="dlg lmenu" style="--c:${colorVar(l.color)}">
       <h3>${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h3>
       <div class="lmenu-actions" id="lmActions">
         <button type="button" class="menu-item" data-lm="open">📖 Ouvrir la leçon</button>
@@ -149,10 +149,8 @@ function openLessonMenu(l) {
         <button type="button" class="menu-item danger-text" data-lm="delete">🗑 Supprimer la leçon</button>
       </div>
       <div class="actions"><span></span><div class="right"><button class="btn ghost" type="button" data-lm="close">Annuler</button></div></div>
-    </div></dialog>`);
-  const dlg = $("#dlgLMenu");
-  dlg.addEventListener("close", () => dlg.remove());
-  dlg.addEventListener("click", ev => { if (ev.target === dlg) dlg.close(); });
+    </div>` });
+  if (!dlg) return;
   const act = {
     open: () => { dlg.close(); go({ view: "lesson", id: l.id }); },
     edit: () => { dlg.close(); openLesson(l); },
@@ -171,7 +169,6 @@ function openLessonMenu(l) {
     },
   };
   dlg.addEventListener("click", ev => { const k = ev.target.closest("[data-lm]")?.dataset.lm; if (k) act[k](); });
-  dlg.showModal();
   $("[data-lm=open]", dlg).focus();
 }
 
