@@ -5,7 +5,7 @@ import { carnet, setCarnet } from "./ui/carnet-ref.js";
 import { createGate } from "./session/gate.js";
 import { $ } from "./ui/dom.js";
 import { renderLogin, renderPrivate, renderSetup, loggedInWithCode, askPassword } from "./ui/login.js";
-import { headerHTML, bindHeader, renderHeader } from "./ui/header.js";
+import { userbarHTML, headerHTML, bindHeader, renderHeader } from "./ui/header.js";
 import { renderLessons, setFilter, filtersHTML, bindFilters } from "./ui/lessons.js";
 import { openLesson } from "./ui/lesson-dialog.js";
 import { initReview, openReview, dueCount } from "./ui/review.js";
@@ -15,7 +15,8 @@ import { setSince } from "./ui/news-ref.js";
 const app = $("#app");
 
 function shell() {
-  app.innerHTML = `${headerHTML()}
+  app.innerHTML = `${userbarHTML()}
+    <div id="home">${headerHTML()}
     <div class="tools">
       <input id="search" class="search" type="search" placeholder="Chercher un mot, une traduction…" aria-label="Chercher">
       <button id="revBtn" class="btn" type="button">Réviser</button>
@@ -23,7 +24,9 @@ function shell() {
     </div>
     <div id="filters">${filtersHTML()}</div>
     <div id="banner"></div>
-    <div id="list"><p class="status">Ouverture du carnet…</p></div>`;
+    <div id="list"><p class="status">Ouverture du carnet…</p></div>
+    </div>
+    <div id="page" hidden></div>`;
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="dlgEntry" aria-label="Entrée"><form class="dlg" id="formEntry" novalidate></form></dialog>
     <dialog id="dlgLesson" aria-label="Leçon"><form class="dlg" id="formLesson" novalidate></form></dialog>
@@ -34,7 +37,8 @@ function shell() {
   bindFilters($("#filters"));
   $("#search").addEventListener("input", ev => setFilter({ query: ev.target.value.trim() }));
   $("#newLesson").onclick = () => openLesson();
-  $("#revBtn").onclick = openReview;
+  $("#revBtn").onclick = () => openReview("");   // toutes les Leçons
+  window.addEventListener("hashchange", render);
   $("#zoomClose").onclick = () => $("#dlgZoom").close();
   // Clic sur le fond : ferme la photo et la révision (pas les formulaires, pour ne rien perdre).
   ["#dlgZoom", "#dlgRev"].forEach(s => { const d = $(s); d.addEventListener("click", ev => { if (ev.target === d) d.close(); }); });

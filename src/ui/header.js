@@ -42,7 +42,8 @@ function editLang() {
   };
 }
 
-export function headerHTML() {
+// Barre du haut (thème, compte) : visible sur toutes les vues.
+export function userbarHTML() {
   return `
     <div class="userbar">${themeButtonHTML()}
       <details class="account" id="account">
@@ -52,7 +53,12 @@ export function headerHTML() {
           <button type="button" class="menu-item" id="logout">Se déconnecter</button>
         </div>
       </details>
-    </div>
+    </div>`;
+}
+
+// En-tête du sommaire : titre du Carnet, nom de la Langue, mode d'emploi.
+export function headerHTML() {
+  return `
     <header>
       <div class="label eyebrow">Carnet partagé</div>
       <h1 id="title">Mon carnet <em>de langue</em></h1>

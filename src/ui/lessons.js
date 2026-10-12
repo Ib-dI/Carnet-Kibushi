@@ -1,7 +1,7 @@
 import { carnet } from "./carnet-ref.js";
 import { cachedUrl, mediaUrl } from "../lib/media.js";
 import { playPath, rebindPlaying } from "../lib/player.js";
-import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, TYPES, errorText } from "./dom.js";
+import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, TYPES, errorText, lessonLabel } from "./dom.js";
 import { entryFilter, isFiltering } from "./entry-filter.js";
 import { hardEntryIds } from "../revision/schedule.js";
 import { openEntry } from "./entry-dialog.js";
@@ -9,6 +9,10 @@ import { openLesson } from "./lesson-dialog.js";
 import { openAttempt } from "./attempt-dialog.js";
 import { openComments } from "./comments-dialog.js";
 import { currentNews } from "./news-ref.js";
+import { currentRoute, routeHash, go } from "./route.js";
+import { dailyItems, localToday } from "../revision/schedule.js";
+import { reviewable } from "../revision/session.js";
+import { openReview } from "./review.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
@@ -33,7 +37,8 @@ export function bindFilters(root) {
   $("[data-fhard]", root).onclick = () => { setFilter({ hard: !filter.hard }); sync(); };
 }
 
-function entryHTML(e, fresh) {
+// inLesson : en résultats de recherche, la Leçon où se trouve l'Entrée (lien vers sa page).
+function entryHTML(e, fresh, inLesson) {
   const tc = e.text_color ? `--tc:${colorVar(e.text_color)};` : "";
   const who = carnet.authorName(e.author_email);
   const tries = carnet.attemptsOf(e.id).length;
@@ -41,7 +46,8 @@ function entryHTML(e, fresh) {
   const coms = carnet.commentsOf(e.id).length, newComs = fresh.comments.get(e.id) || 0;
   const comBtn = ` · <button class="mini" data-comments="${esc(e.id)}" type="button">💬 ${coms ? `Commentaires (${coms})` : "Commenter"}</button>${newComs ? `<span class="new-pill">${newComs} nouveau${newComs > 1 ? "x" : ""}</span>` : ""}`;
   const newPill = fresh.entries.has(e.id) ? `<span class="new-pill">nouveau</span>` : "";
-  const metaLine = `<div class="meta">${newPill}${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button>${tryBtn}${comBtn}</div>`;
+  const where = inLesson ? `<a class="mini" href="${routeHash({ view: "lesson", id: inLesson.id })}">dans ${esc(lessonLabel(inLesson))}</a> · ` : "";
+  const metaLine = `<div class="meta">${newPill}${where}${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button>${tryBtn}${comBtn}</div>`;
   const play = e.audio_path ? `<button class="play" type="button" data-play="${esc(e.id)}" aria-label="Écouter ${esc(e.word || "le vocal")}">${PLAY_ICON}</button>` : "";
   const thumb = e.image_path ? `<img class="thumb" data-img="${esc(e.id)}" alt="Image pour ${esc(e.word || "cette entrée")}" role="button" tabindex="0">` : "";
   if (e.type === "conseil") {
@@ -73,7 +79,22 @@ function emptyHTML() {
     <p class="err" id="suggErr" hidden></p></div>`;
 }
 
+// Les Entrées d'une Leçon, dans l'ordre d'ajout.
+const entriesOf = lessonId => carnet.state.entries.filter(e => e.lesson_id === lessonId).sort((a, b) => time(a) - time(b));
+// À réviser maintenant dans une Leçon : Cartes à revoir et nouvelles (comme « Réviser cette leçon »).
+const toReview = lessonId => dailyItems(carnet.state.entries, carnet.state.progress, localToday(), { lessonId }).length;
+
+// Vue courante, d'après l'adresse : sommaire des Leçons ou page d'une Leçon.
 export function renderLessons() {
+  const route = currentRoute();
+  const lesson = route.view === "lesson" && carnet.state.lessons.find(l => l.id === route.id);
+  if (route.view === "lesson" && !lesson) { go({ view: "home" }); return; }   // Leçon supprimée
+  $("#home").hidden = Boolean(lesson);
+  $("#page").hidden = !lesson;
+  if (lesson) renderLessonPage(lesson); else renderHome();
+}
+
+function renderHome() {
   const list = $("#list"), state = carnet.state;
   if (!state.lessons.length) {
     list.innerHTML = emptyHTML();
@@ -86,44 +107,72 @@ export function renderLessons() {
     $("#customLesson").onclick = () => openLesson();
     return;
   }
+  if (isFiltering(filter)) { renderResults(list); return; }
 
-  const hard = hardEntryIds(state.progress), fresh = currentNews();
-  const byLesson = {};
-  state.entries.forEach(e => (byLesson[e.lesson_id] ||= []).push(e));
-  let html = '<div class="grid">', shown = 0;
-  state.lessons.forEach((l, i) => {
-    const all = (byLesson[l.id] || []).sort((a, b) => time(a) - time(b));
-    const es = all.filter(entryFilter(filter, hard));
-    if (isFiltering(filter) && !es.length) return;
-    shown++;
-    html += `<article class="lesson" style="--c:${colorVar(l.color)}">
+  const fresh = currentNews();
+  list.innerHTML = `<div class="tiles">${state.lessons.map(l => {
+    const words = entriesOf(l.id), due = toReview(l.id);
+    const news = words.filter(e => fresh.entries.has(e.id)).length;
+    const status = !words.some(reviewable) ? "" : due ? `<b>${due} à réviser</b>` : `<span class="ok">✓ à jour</span>`;
+    return `<a class="tile" href="${routeHash({ view: "lesson", id: l.id })}" style="--c:${colorVar(l.color)}">
+      <span class="tile-emo" aria-hidden="true">${esc(l.emoji || "📒")}</span>
+      <span class="tile-title">${esc(l.title)}</span>
+      <span class="tile-meta">${words.length ? `${words.length} mot${words.length > 1 ? "s" : ""}` : "Vide"}${status ? ` · ${status}` : ""}</span>
+      ${news ? `<span class="new-pill tile-new">${news} nouveau${news > 1 ? "x" : ""}</span>` : ""}
+    </a>`;
+  }).join("")}</div>`;
+}
+
+// Recherche ou filtre actif : la liste des Entrées trouvées, toutes Leçons confondues.
+function renderResults(list) {
+  const hard = hardEntryIds(carnet.state.progress), fresh = currentNews();
+  const found = carnet.state.entries.filter(entryFilter(filter, hard)).sort((a, b) => time(a) - time(b));
+  if (!found.length) {
+    list.innerHTML = `<p class="status">${filter.query ? `Aucun résultat pour « ${esc(filter.query)} ».` : "Aucune entrée ne correspond à ces filtres."}</p>`;
+    return;
+  }
+  const lessonOf = id => carnet.state.lessons.find(l => l.id === id);
+  list.innerHTML = `<p class="status">${found.length} résultat${found.length > 1 ? "s" : ""}</p>
+    <div class="lesson results"><ul class="entries">${found.map(e => entryHTML(e, fresh, lessonOf(e.lesson_id))).join("")}</ul></div>`;
+  bindEntries(list);
+}
+
+function renderLessonPage(l) {
+  const page = $("#page"), fresh = currentNews();
+  const index = carnet.state.lessons.indexOf(l), es = entriesOf(l.id), due = toReview(l.id);
+  const sameLesson = page.dataset.lesson === l.id;
+  const focusSel = sameLesson ? focusSelector(document.activeElement, page) : null;
+  page.innerHTML = `<article class="lesson page" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
-        <div class="label">Leçon ${i + 1} · ${all.length} entrée${all.length > 1 ? "s" : ""}</div>
-        <span class="lesson-num" aria-hidden="true">${pad(i + 1)}</span>
-        <h2>${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h2>
-        <button class="edit" type="button" data-ledit="${esc(l.id)}">Modifier la leçon</button>
+        <a class="back" href="${routeHash({ view: "home" })}">‹ Leçons</a>
+        <div class="label">Leçon ${index + 1} · ${es.length} mot${es.length > 1 ? "s" : ""}</div>
+        <span class="lesson-num" aria-hidden="true">${pad(index + 1)}</span>
+        <h2 tabindex="-1">${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h2>
+        <div class="page-actions">
+          ${es.some(reviewable) ? `<button class="btn small page-review" type="button" data-review>${due ? `Réviser cette leçon (${due})` : "✓ À jour · réviser quand même"}</button>` : ""}
+          <button class="edit" type="button" data-ledit="${esc(l.id)}">Modifier la leçon</button>
+        </div>
       </div>
       <ul class="entries">${es.length ? es.map(e => entryHTML(e, fresh)).join("") : `<li class="empty-l">Rien encore dans cette leçon.</li>`}</ul>
       <div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>
     </article>`;
-  });
-  html += "</div>";
-  if (isFiltering(filter) && !shown) html = `<p class="status">${filter.query ? `Aucun résultat pour « ${esc(filter.query)} ».` : "Aucune entrée ne correspond à ces filtres."}</p>`;
+  if (!sameLesson) { page.dataset.lesson = l.id; window.scrollTo(0, 0); $("h2", page).focus({ preventScroll: true }); }
+  else if (focusSel) page.querySelector(focusSel)?.focus();
+  $("[data-review]", page)?.addEventListener("click", () => openReview(l.id));
+  $("[data-ledit]", page).onclick = () => openLesson(l);
+  $("[data-add]", page).onclick = () => openEntry(null, l.id);
+  bindEntries(page);
+}
 
-  // Garder le focus clavier sur le même bouton après un re-rendu (temps réel).
-  const focusSel = focusSelector(document.activeElement, list);
-  list.innerHTML = html;
-  if (focusSel) list.querySelector(focusSel)?.focus();
-
+// Boutons des Entrées (écouter, modifier, essais, commentaires, image) dans une zone affichée.
+function bindEntries(root) {
   const entry = id => carnet.state.entries.find(e => e.id === id);
-  $$("[data-add]", list).forEach(b => b.onclick = () => openEntry(null, b.dataset.add));
-  $$("[data-edit]", list).forEach(b => b.onclick = () => openEntry(entry(b.dataset.edit)));
-  $$("[data-comments]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.comments); e && openComments(e); });
-  $$("[data-try]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.try); e && openAttempt(e); });
-  $$("[data-ledit]", list).forEach(b => b.onclick = () => openLesson(carnet.state.lessons.find(l => l.id === b.dataset.ledit)));
-  $$("[data-play]", list).forEach(b => b.onclick = () => { const e = entry(b.dataset.play); e && playPath(e.audio_path, b, e.id); });
-  rebindPlaying(list);
-  $$("[data-img]", list).forEach(img => {
+  $$("[data-edit]", root).forEach(b => b.onclick = () => openEntry(entry(b.dataset.edit)));
+  $$("[data-comments]", root).forEach(b => b.onclick = () => { const e = entry(b.dataset.comments); e && openComments(e); });
+  $$("[data-try]", root).forEach(b => b.onclick = () => { const e = entry(b.dataset.try); e && openAttempt(e); });
+  $$("[data-play]", root).forEach(b => b.onclick = () => { const e = entry(b.dataset.play); e && playPath(e.audio_path, b, e.id); });
+  rebindPlaying(root);
+  $$("[data-img]", root).forEach(img => {
     const e = entry(img.dataset.img);
     const show = u => {
       if (!u) { img.remove(); return; }

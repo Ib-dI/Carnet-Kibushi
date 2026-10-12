@@ -1,4 +1,5 @@
 import { carnet } from "./carnet-ref.js";
+import { go, currentRoute } from "./route.js";
 import { $, $$, esc, COLORS, EMOJIS, errorText } from "./dom.js";
 
 const EMPTY_TITLE = "Donne un nom au thème.";
@@ -41,6 +42,7 @@ export function openLesson(l) {
     $("#lDelYes").onclick = async () => {
       $("#lDelYes").disabled = true;
       const r = await carnet.deleteLesson(l);
+      if (r.ok && currentRoute().id === l.id) go({ view: "home" });
       if (!r.ok) { draw($("#lTitle").value); showErr(errorText(r)); return; }
       dlg.close();
     };
@@ -50,6 +52,7 @@ export function openLesson(l) {
     ev.preventDefault();
     const btn = $("#lSave"); btn.disabled = true;
     const r = await carnet.saveLesson(l || null, { title: $("#lTitle").value, emoji, color });
+    if (r.ok && !l) go({ view: "lesson", id: r.value.id });   // une nouvelle Leçon s'ouvre aussitôt
     btn.disabled = false;
     if (!r.ok) { showErr(errorText(r, EMPTY_TITLE)); if (r.reason === "empty") $("#lTitle").focus(); return; }
     dlg.close();

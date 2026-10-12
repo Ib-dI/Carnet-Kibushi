@@ -190,7 +190,9 @@ export function initReview() {
   dlg.addEventListener("close", stopPlayback);
 }
 
-export function openReview() {
+// lessonId : réviser une seule Leçon (bouton « Réviser cette leçon »).
+export function openReview(lessonId) {
+  if (typeof lessonId === "string") revLesson = lessonId;
   if (revLesson && !carnet.state.lessons.some(l => l.id === revLesson)) revLesson = "";
   mode = "jour";   // même s'il n'y a rien à revoir : on l'affiche, sans basculer seul en libre
   buildDeck();

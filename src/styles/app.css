@@ -240,3 +240,27 @@ textarea.inp{min-height:76px;resize:vertical}
   .search{flex-basis:100%}
   .tools .btn{flex:1 1 0}
 }
+
+/* Sommaire : une tuile par Leçon */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:14px}
+.tile{position:relative;display:grid;gap:4px;padding:18px 18px 16px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);border-top:6px solid var(--c);color:var(--ink);text-decoration:none;transition:transform .15s ease,box-shadow .15s ease}
+.tile:hover,.tile:focus-visible{transform:translateY(-2px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
+.tile-emo{font-size:2rem;line-height:1}
+.tile-title{font-family:var(--f-display);font-weight:650;font-size:1.3rem;line-height:1.15}
+.tile-meta{font-size:.85rem;color:var(--muted)}
+.tile-meta b{color:var(--c)}
+.tile-meta .ok{color:var(--canard);font-weight:700}
+.tile-new{position:absolute;top:10px;right:6px}
+@media (prefers-reduced-motion:reduce){ .tile{transition:none} .tile:hover{transform:none} }
+
+/* Page d'une Leçon */
+.lesson.page{max-width:760px;margin:0 auto}
+.lesson-head .back{grid-column:1 / -1;justify-self:start;color:var(--on-accent);text-decoration:none;font-weight:700;font-size:.9rem;opacity:.9;margin-bottom:4px}
+.lesson-head h2:focus{outline:none}
+.page-actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.page-actions .edit{margin-top:0}
+.page-review{background:var(--on-accent);color:var(--c);border-color:transparent;font-weight:800}
+.results{margin-top:6px}
+@media (max-width:520px){ .tiles{grid-template-columns:1fr 1fr;gap:10px} .tile{padding:14px 12px 12px} .tile-title{font-size:1.1rem} }
+.lesson.page{animation:none}
+@media (max-width:520px){ .tools .btn{white-space:nowrap;padding-inline:14px} }
