@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { streak, upcoming, mastery } from "./stats.js";
+import { streak, upcoming, mastery, lessonStatus } from "./stats.js";
 
 const TODAY = "2026-10-11";
 const e = (id, lesson_id, extra = {}) => ({ id, type: "mot", word: `w${id}`, translation: `t${id}`, lesson_id, ...extra });
@@ -40,5 +40,14 @@ describe("mastery", () => {
       { lesson: lessons[0], items: 5, mastered: 3, percent: 60 },
       { lesson: lessons[1], items: 0, mastered: 0, percent: 0 },
     ]);
+  });
+});
+
+describe("lessonStatus", () => {
+  it("words, Cartes and what is to review now in one Leçon", () => {
+    const entries = [e("a", "L"), e("b", "L"), e("c", "L", { type: "conseil" }), e("x", "M")];
+    const progress = [p("a", "fr", 2, "2026-10-20"), p("a", "lg", 2, "2026-10-20")];
+    expect(lessonStatus(entries, progress, "L", TODAY)).toEqual({ words: 3, cards: 2, toReview: 2 });
+    expect(lessonStatus(entries, progress, "vide", TODAY)).toEqual({ words: 0, cards: 0, toReview: 0 });
   });
 });

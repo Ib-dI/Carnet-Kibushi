@@ -250,8 +250,19 @@ export function createCarnet({ db, storage, me }) {
       }
     },
 
-    // La page d'une Leçon : blocs et Entrées dans l'ordre ([{ kind, item, rank }], voir page.js).
+    // La page d'une Leçon : blocs et Entrées dans l'ordre ([{ kind, item, rank, num }], voir page.js).
     pageOf: lessonId => pageItems(state, lessonId),
+
+    // Ce qui part avec une Leçon ({ lesson }) ou un mot ({ entry }) si on le supprime.
+    footprintOf({ lesson, entry }) {
+      const entryIds = new Set(lesson ? state.entries.filter(e => e.lesson_id === lesson.id).map(e => e.id) : [entry.id]);
+      return {
+        words: lesson ? entryIds.size : 0,
+        blocks: lesson ? state.blocks.filter(b => b.lesson_id === lesson.id).length : 0,
+        comments: state.comments.filter(c => entryIds.has(c.entry_id)).length,
+        attempts: state.attempts.filter(t => entryIds.has(t.entry_id)).length,
+      };
+    },
 
     // Bloc de texte libre. Nouveau : { lesson_id, type, body, title?, color?, position? } (fin de page par défaut).
     // Existant : seuls les champs donnés changent.

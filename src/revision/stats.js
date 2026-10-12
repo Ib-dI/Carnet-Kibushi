@@ -1,6 +1,6 @@
 // Écran « Progrès » : série de jours de révision, Cartes à venir, maîtrise par Leçon.
 import { reviewable } from "./session.js";
-import { addDays, directionsFor } from "./schedule.js";
+import { addDays, directionsFor, dailyItems } from "./schedule.js";
 
 // Une Carte est « sue » dans un Sens à partir de cette Boîte.
 export const MASTERED_BOX = 3;
@@ -35,4 +35,15 @@ export function mastery(lessons, entries, progress) {
     const mastered = items.filter(k => (box.get(k) || 0) >= MASTERED_BOX).length;
     return { lesson, items: items.length, mastered, percent: items.length ? Math.round((100 * mastered) / items.length) : 0 };
   });
+}
+
+// Pour la tuile d'une Leçon : ses mots, ses Cartes, et ce qui est à réviser maintenant
+// (Cartes à revoir et nouvelles, comme « Réviser cette leçon »).
+export function lessonStatus(entries, progress, lessonId, today) {
+  const words = entries.filter(e => e.lesson_id === lessonId);
+  return {
+    words: words.length,
+    cards: words.filter(reviewable).length,
+    toReview: dailyItems(entries, progress, today, { lessonId }).length,
+  };
 }

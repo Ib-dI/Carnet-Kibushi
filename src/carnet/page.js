@@ -7,7 +7,8 @@ export const BLOCK_KINDS = ["text", "title", "list", "numbered", "quote", "callo
 
 const byDate = (a, b) => String(a.created_at).localeCompare(String(b.created_at));
 
-// [{ kind: "block" | "entry", item, rank }] dans l'ordre de la page.
+// [{ kind: "block" | "entry", item, rank, num? }] dans l'ordre de la page ;
+// num : numéro du mot dans la page (les blocs de texte ne comptent pas).
 export function pageItems(state, lessonId) {
   const placed = [
     ...state.blocks.filter(b => b.lesson_id === lessonId).map(item => ({ kind: "block", item })),
@@ -15,7 +16,8 @@ export function pageItems(state, lessonId) {
   ].sort((a, b) => a.item.position - b.item.position || byDate(a.item, b.item));
   const loose = state.entries.filter(e => e.lesson_id === lessonId && e.position == null).sort(byDate)
     .map(item => ({ kind: "entry", item }));
-  return [...placed, ...loose].map((it, rank) => ({ ...it, rank }));
+  let n = 0;
+  return [...placed, ...loose].map((it, rank) => ({ ...it, rank, ...(it.kind === "entry" ? { num: ++n } : {}) }));
 }
 
 // Position effective d'un élément de page (celle qu'on lui donnerait s'il n'en a pas encore).
@@ -32,3 +34,9 @@ export function positionBetween(before, after) {
 
 // Position pour insérer avant le i-ème élément de `items` (objets { position }) ; i = longueur : à la fin.
 export const positionAt = (items, i) => positionBetween(items[i - 1]?.position ?? null, items[i]?.position ?? null);
+
+// Position de chaque « + Ajouter ici » d'une page : avant chaque élément, puis à la fin.
+export function insertPositions(items) {
+  const placed = items.map(it => ({ position: positionOf(it) }));
+  return Array.from({ length: items.length + 1 }, (_, i) => positionAt(placed, i));
+}

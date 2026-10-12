@@ -27,3 +27,10 @@ export const errorText = (r, empty = SAVE_ERROR) =>
   r.reason === "too-large" ? TOO_LARGE[r.media] : r.reason === "empty" ? empty : SAVE_ERROR;
 
 export const lessonLabel = l => (l.emoji ? l.emoji + " " : "") + l.title;
+
+// Ce qui part avec une Leçon ou un mot, en français : « son mot et ses 2 blocs de texte ».
+const PARTS = [["words", "mot", "mots"], ["blocks", "bloc de texte", "blocs de texte"], ["comments", "commentaire", "commentaires"], ["attempts", "essai", "essais"]];
+export function alsoText(f) {
+  const parts = PARTS.filter(([k]) => f[k]).map(([k, one, many]) => f[k] === 1 ? `son ${one}` : `ses ${f[k]} ${many}`);
+  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} et ${parts.at(-1)}`;
+}

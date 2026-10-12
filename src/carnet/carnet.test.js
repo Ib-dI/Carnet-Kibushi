@@ -535,3 +535,18 @@ describe("pages : blocs et positions", () => {
     expect(server.tables.blocks).toEqual([]);
   });
 });
+
+describe("ce qui part avec", () => {
+  it("a Leçon takes its words and blocks; a word takes its Essais and Commentaires", async () => {
+    const a = (await open(ALICE)).carnet;
+    const lesson = (await a.saveLesson(null, { title: "Salutations" })).value;
+    const { value: e } = await a.saveEntry(null, draft(lesson.id));
+    await a.saveEntry(null, draft(lesson.id, { word: "kwaheri" }));
+    await a.saveBlock(null, { lesson_id: lesson.id, type: "text", body: "x" });
+    await a.saveAttempt(e.id, blob());
+    await a.addComment(e.id, "un");
+    await a.addComment(e.id, "deux");
+    expect(a.footprintOf({ lesson })).toEqual({ words: 2, blocks: 1, comments: 2, attempts: 1 });
+    expect(a.footprintOf({ entry: e })).toEqual({ words: 0, blocks: 0, comments: 2, attempts: 1 });
+  });
+});

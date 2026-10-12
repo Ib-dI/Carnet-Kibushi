@@ -4,7 +4,7 @@ import { createMediaSlot } from "../carnet/media-slot.js";
 import { startRecording, canRecord, fmtTime, meterHTML, setMeter, MAX_SECONDS } from "../lib/recorder.js";
 import { stopPlayback } from "../lib/player.js";
 import { carnet } from "./carnet-ref.js";
-import { $, $$, esc, COLORS, EMOJIS, TYPES, TOO_LARGE, errorText, lessonLabel } from "./dom.js";
+import { $, $$, esc, COLORS, EMOJIS, TYPES, TOO_LARGE, errorText, lessonLabel, alsoText } from "./dom.js";
 
 const MIC_BLOCKED = "Le micro est bloqué. Autorise-le dans les réglages du navigateur, ou choisis un fichier.";
 const MIC_FAILED = "Le micro ne répond pas. Choisis plutôt un fichier audio.";
@@ -148,9 +148,8 @@ export function openEntry(e, lessonId, { position } = {}) {
   /* ---------- Suppression ---------- */
   const confirmDelete = () => {
     keep();
-    const nc = carnet.commentsOf(e.id).length, nt = carnet.attemptsOf(e.id).length;
-    const also = [nc && `${nc} commentaire${nc > 1 ? "s" : ""}`, nt && `${nt} essai${nt > 1 ? "s" : ""}`].filter(Boolean).join(" et ");
-    $("#eDelZone").innerHTML = `<span class="confirm">${also ? `Supprimer cette entrée, et aussi ${also} ?` : "Supprimer cette entrée ?"} <button class="btn small danger" type="button" id="eYes">Oui</button><button class="btn small ghost" type="button" id="eNo">Non</button></span>`;
+    const also = alsoText(carnet.footprintOf({ entry: e }));
+    $("#eDelZone").innerHTML = `<span class="confirm">${also ? `Supprimer ce mot, avec ${also} ?` : "Supprimer ce mot ?"} <button class="btn small danger" type="button" id="eYes">Oui</button><button class="btn small ghost" type="button" id="eNo">Non</button></span>`;
     $("#eYes").focus();
     $("#eNo").onclick = () => { keep(); draw(); $("#eDel").focus(); };
     $("#eYes").onclick = async () => {

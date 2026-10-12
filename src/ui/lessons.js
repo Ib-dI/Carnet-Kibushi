@@ -1,7 +1,7 @@
 import { carnet } from "./carnet-ref.js";
 import { cachedUrl, mediaUrl } from "../lib/media.js";
 import { playPath, rebindPlaying } from "../lib/player.js";
-import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, TYPES, errorText, lessonLabel } from "./dom.js";
+import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, TYPES, errorText, lessonLabel, alsoText } from "./dom.js";
 import { entryFilter, isFiltering, blockFilter } from "./entry-filter.js";
 import { hardEntryIds } from "../revision/schedule.js";
 import { openEntry } from "./entry-dialog.js";
@@ -10,14 +10,14 @@ import { openAttempt } from "./attempt-dialog.js";
 import { openComments } from "./comments-dialog.js";
 import { currentNews } from "./news-ref.js";
 import { currentRoute, routeHash, go } from "./route.js";
-import { dailyItems, localToday } from "../revision/schedule.js";
-import { reviewable } from "../revision/session.js";
+import { localToday } from "../revision/schedule.js";
 import { openReview } from "./review.js";
 import { openBlock } from "./block-dialog.js";
 import { howtoHTML } from "./header.js";
 import { onLongPress } from "./long-press.js";
 import { blockHTML, BLOCK_TYPES } from "./rich.js";
-import { positionAt, positionOf } from "../carnet/page.js";
+import { insertPositions } from "../carnet/page.js";
+import { lessonStatus } from "../revision/stats.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
@@ -91,10 +91,8 @@ function emptyHTML() {
     <div class="label">Comment on s'en sert</div>${howtoHTML()}</div>`;
 }
 
-// Les Entrées d'une Leçon, dans l'ordre d'ajout.
-const entriesOf = lessonId => carnet.state.entries.filter(e => e.lesson_id === lessonId).sort((a, b) => time(a) - time(b));
-// À réviser maintenant dans une Leçon : Cartes à revoir et nouvelles (comme « Réviser cette leçon »).
-const toReview = lessonId => dailyItems(carnet.state.entries, carnet.state.progress, localToday(), { lessonId }).length;
+// État d'une Leçon (mots, Cartes, à réviser maintenant) : voir revision/stats.js.
+const statusOf = lessonId => lessonStatus(carnet.state.entries, carnet.state.progress, lessonId, localToday());
 
 // Onglet « Leçons » : le sommaire (#/) ou la page d'une Leçon (#/lecon/<id>).
 export function renderLessons() {
@@ -121,13 +119,13 @@ function renderHome() {
 
   const fresh = currentNews();
   list.innerHTML = `<div class="tiles">${state.lessons.map(l => {
-    const words = entriesOf(l.id), due = toReview(l.id);
-    const news = words.filter(e => fresh.entries.has(e.id)).length;
-    const status = !words.some(reviewable) ? "" : due ? `<b>${due} à réviser</b>` : `<span class="ok">✓ à jour</span>`;
+    const { words, cards, toReview: due } = statusOf(l.id);
+    const news = state.entries.filter(e => e.lesson_id === l.id && fresh.entries.has(e.id)).length;
+    const status = !cards ? "" : due ? `<b>${due} à réviser</b>` : `<span class="ok">✓ à jour</span>`;
     return `<a class="tile" href="${routeHash({ view: "lesson", id: l.id })}" data-lesson="${esc(l.id)}" style="--c:${colorVar(l.color)}">
       <span class="tile-emo" aria-hidden="true">${esc(l.emoji || "📒")}</span>
       <span class="tile-title">${esc(l.title)}</span>
-      <span class="tile-meta">${words.length ? `${words.length} mot${words.length > 1 ? "s" : ""}` : "Vide"}${status ? ` · ${status}` : ""}</span>
+      <span class="tile-meta">${words ? `${words} mot${words > 1 ? "s" : ""}` : "Vide"}${status ? ` · ${status}` : ""}</span>
       ${news ? `<span class="new-pill tile-new">${news} nouveau${news > 1 ? "x" : ""}</span>` : ""}
     </a>`;
   }).join("")}
@@ -143,7 +141,6 @@ function renderHome() {
 // Menu d'une Leçon (appui long sur sa tuile) : modifier, ou supprimer avec confirmation.
 function openLessonMenu(l) {
   $("#dlgLMenu")?.remove();
-  const words = entriesOf(l.id).length, nb = carnet.state.blocks.filter(b => b.lesson_id === l.id).length;
   document.body.insertAdjacentHTML("beforeend", `<dialog id="dlgLMenu" aria-label="${esc(l.title)}"><div class="dlg lmenu" style="--c:${colorVar(l.color)}">
       <h3>${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h3>
       <div class="lmenu-actions" id="lmActions">
@@ -161,8 +158,7 @@ function openLessonMenu(l) {
     edit: () => { dlg.close(); openLesson(l); },
     close: () => dlg.close(),
     delete: () => {
-      const what = (k, one, many) => k === 1 ? `son ${one}` : `ses ${k} ${many}`;
-      const also = [words && what(words, "mot", "mots"), nb && what(nb, "bloc de texte", "blocs de texte")].filter(Boolean).join(" et ");
+      const also = alsoText(carnet.footprintOf({ lesson: l }));
       $("#lmActions").innerHTML = `<p class="confirm">Supprimer « ${esc(l.title)} »${also ? `, avec ${also}` : ""} ? C'est définitif.</p>
         <button type="button" class="btn danger" id="lmYes">Oui, supprimer</button>`;
       $("#lmYes").focus();
@@ -206,7 +202,7 @@ let editing = null, inserting = null;
 function renderLessonPage(l) {
   const page = $("#page"), fresh = currentNews();
   if (editing !== l.id) { editing = null; inserting = null; }
-  const index = carnet.state.lessons.indexOf(l), es = entriesOf(l.id), due = toReview(l.id);
+  const index = carnet.state.lessons.indexOf(l), { words, cards, toReview: due } = statusOf(l.id);
   const items = carnet.pageOf(l.id), edit = editing === l.id;
   const sameLesson = page.dataset.lesson === l.id;
   const focusSel = sameLesson ? focusSelector(document.activeElement, page) : null;
@@ -222,20 +218,18 @@ function renderLessonPage(l) {
         ${BLOCK_TYPES.map(([t, label]) => `<button type="button" class="chip" data-new="${t}">${esc(label)}</button>`).join("")}
         <button type="button" class="chip ghost" data-new="" aria-label="Annuler">✕</button></div></li>`
     : `<li class="pg-insert"><button type="button" class="pg-plus" data-insert="${i}" aria-label="Ajouter ici">+</button></li>`;
-  // Numéro de chaque mot dans la page (les blocs de texte ne comptent pas).
-  const nums = new Map(items.filter(it => it.kind === "entry").map((it, k) => [it.item.id, k + 1]));
   const row = (it, i) => it.kind === "block"
     ? `<li class="pg-block ${edit ? "editing" : ""}" data-bid="${esc(it.item.id)}">${blockHTML(it.item)}${tools(it, i)}</li>`
-    : entryHTML(it.item, fresh, null, nums.get(it.item.id)).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
+    : entryHTML(it.item, fresh, null, it.num).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
 
   page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""}" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
         <a class="back" href="${routeHash({ view: "home" })}">‹ Leçons</a>
-        <div class="label">Leçon ${index + 1} · ${es.length} mot${es.length > 1 ? "s" : ""}</div>
+        <div class="label">Leçon ${index + 1} · ${words} mot${words > 1 ? "s" : ""}</div>
         <span class="lesson-num" aria-hidden="true">${pad(index + 1)}</span>
         <h2 tabindex="-1">${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h2>
         <div class="page-actions">
-          ${!edit && es.some(reviewable) ? `<button class="btn small page-review" type="button" data-review>${due ? `Réviser cette leçon (${due})` : "✓ À jour · réviser quand même"}</button>` : ""}
+          ${!edit && cards ? `<button class="btn small page-review" type="button" data-review>${due ? `Réviser cette leçon (${due})` : "✓ À jour · réviser quand même"}</button>` : ""}
           <button class="edit" type="button" data-pedit>${edit ? "✓ Terminé" : "✎ Modifier la page"}</button>
           ${edit ? `<button class="edit" type="button" data-ledit="${esc(l.id)}">Titre, emoji, couleur…</button>` : ""}
         </div>
@@ -262,9 +256,7 @@ function renderLessonPage(l) {
   $("[data-pedit]", page).onclick = () => { editing = edit ? null : l.id; inserting = null; rerender(); };
   // Supprimer la Leçon (mode « Modifier la page ») : confirmation sur place, qui dit ce qui part avec elle.
   $("[data-ldel]", page)?.addEventListener("click", () => {
-    const zone = $("#lDelZone2"), nb = items.length - es.length;
-    const what = (k, one, many) => k === 1 ? `son ${one}` : `ses ${k} ${many}`;
-    const also = [es.length && what(es.length, "mot", "mots"), nb && what(nb, "bloc de texte", "blocs de texte")].filter(Boolean).join(" et ");
+    const zone = $("#lDelZone2"), also = alsoText(carnet.footprintOf({ lesson: l }));
     zone.innerHTML = `<span class="confirm">Supprimer « ${esc(l.title)} »${also ? `, avec ${also}` : ""} ?
       <button class="btn small danger" type="button" id="lDelYes2">Oui, supprimer</button>
       <button class="btn small ghost" type="button" id="lDelNo2">Non</button></span>`;
@@ -279,7 +271,7 @@ function renderLessonPage(l) {
   });
   $$("[data-insert]", page).forEach(b => b.onclick = () => { inserting = +b.dataset.insert; rerender(); $("[data-new]", page)?.focus(); });
   $$("[data-new]", page).forEach(b => b.onclick = async () => {
-    const kind = b.dataset.new, position = positionAt(items.map(it => ({ position: positionOf(it) })), inserting);
+    const kind = b.dataset.new, position = insertPositions(items)[inserting];
     inserting = null;
     if (kind === "entry") openEntry(null, l.id, { position });
     else if (kind === "divider") await carnet.saveBlock(null, { lesson_id: l.id, type: "divider", position });

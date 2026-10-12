@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pageItems, positionBetween, positionAt, positionOf } from "./page.js";
+import { pageItems, positionBetween, positionAt, positionOf, insertPositions } from "./page.js";
 
 const entry = (id, extra = {}) => ({ id, lesson_id: "L", created_at: `2026-10-0${id.length}T10:00:00Z`, ...extra });
 const block = (id, position, extra = {}) => ({ id, lesson_id: "L", type: "text", body: id, position, ...extra });
@@ -42,5 +42,18 @@ describe("positions", () => {
     const state = { entries: [entry("a"), entry("bb")], blocks: [] };
     const items = pageItems(state, "L");
     expect(items.map(positionOf)).toEqual([1, 2]);
+  });
+});
+
+describe("numéros et points d'insertion", () => {
+  it("numbers the words only, in page order", () => {
+    const state = { entries: [entry("e1", { position: 2 }), entry("e2", { position: 4 })], blocks: [block("b1", 1), block("b2", 3)] };
+    expect(pageItems(state, "L").map(i => i.num ?? "-")).toEqual(["-", 1, "-", 2]);
+  });
+
+  it("gives a position for every « + Ajouter ici », before each item and at the end", () => {
+    const state = { entries: [entry("e1", { position: 10 })], blocks: [block("b1", 20)] };
+    expect(insertPositions(pageItems(state, "L"))).toEqual([9, 15, 21]);
+    expect(insertPositions([])).toEqual([1]);
   });
 });

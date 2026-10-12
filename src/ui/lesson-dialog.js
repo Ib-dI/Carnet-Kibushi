@@ -1,6 +1,6 @@
 import { carnet } from "./carnet-ref.js";
 import { go, currentRoute } from "./route.js";
-import { $, $$, esc, COLORS, EMOJIS, SUGGESTIONS, errorText } from "./dom.js";
+import { $, $$, esc, COLORS, EMOJIS, SUGGESTIONS, errorText, alsoText } from "./dom.js";
 
 const EMPTY_TITLE = "Donne un nom au thème.";
 
@@ -8,7 +8,6 @@ export function openLesson(l) {
   const dlg = $("#dlgLesson"), f = $("#formLesson");
   let color = l ? l.color : COLORS[carnet.state.lessons.length % COLORS.length][0];
   let emoji = l ? l.emoji || "" : "";
-  const lessonEntries = () => l ? carnet.state.entries.filter(e => e.lesson_id === l.id) : [];
 
   // Nouvelle Leçon : des idées de thèmes, sans ceux qui existent déjà ; un toucher remplit titre, emoji et couleur.
   const taken = new Set(carnet.state.lessons.map(x => x.title.trim().toLowerCase()));
@@ -45,9 +44,7 @@ export function openLesson(l) {
   const showErr = msg => { const e = $("#lErr"); e.hidden = false; e.textContent = msg; };
 
   const confirmDelete = () => {
-    const n = lessonEntries().length, nb = carnet.state.blocks.filter(b => b.lesson_id === l.id).length;
-    const what = (k, one, many) => k === 1 ? `son ${one}` : `ses ${k} ${many}`;
-    const also = [n && what(n, "mot", "mots"), nb && what(nb, "bloc de texte", "blocs de texte")].filter(Boolean).join(" et ");
+    const also = alsoText(carnet.footprintOf({ lesson: l }));
     $("#lDelZone").innerHTML = `<span class="confirm">${also ? `Supprimer la leçon, avec ${also} ?` : "Supprimer la leçon ?"}
       <button class="btn small danger" type="button" id="lDelYes">Oui</button><button class="btn small ghost" type="button" id="lDelNo">Non</button></span>`;
     $("#lDelNo").onclick = () => { draw($("#lTitle").value); $("#lDel").focus(); };
