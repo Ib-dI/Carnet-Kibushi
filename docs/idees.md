@@ -12,6 +12,11 @@ Notées le 12 octobre 2026, avant le premier essai avec la professeure. À trier
 
 ## Plus tard
 
+- **Plus d'apprenants** (d'autres élèves de la professeure, même Carnet, chacun sa progression) :
+  - **rôles** : Enseignante (crée, modifie, supprime Leçons et mots) et Apprenant (lit, révise, Essais, Commentaires) ;
+  - **inviter** : « Inviter un élève » dans l'app (la professeure saisit l'adresse), puis un **lien d'invitation** partageable (WhatsApp), à usage unique ou limité dans le temps, désactivable.
+  - Ne jamais ouvrir l'inscription à tous : sans la règle « Membres seulement », n'importe qui pourrait lire et effacer le Carnet.
+
 - **Hors ligne** : ouvrir et réviser sans réseau, les réponses partent au retour du réseau.
 - **Rappel quotidien** (« 5 cartes t'attendent ») : demande l'app installée sur l'écran d'accueil, surtout sur iPhone.
 - **Alléger la ligne sous chaque mot** (« Ajouté par toi · date · Modifier · Essais · Commenter ») en une petite icône « ⋯ ».
