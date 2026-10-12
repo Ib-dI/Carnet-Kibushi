@@ -14,6 +14,7 @@ import { dailyItems, localToday } from "../revision/schedule.js";
 import { reviewable } from "../revision/session.js";
 import { openReview } from "./review.js";
 import { openBlock } from "./block-dialog.js";
+import { howtoHTML } from "./header.js";
 import { blockHTML, BLOCK_TYPES } from "./rich.js";
 import { positionAt, positionOf } from "../carnet/page.js";
 
@@ -22,7 +23,12 @@ const time = e => Date.parse(e.created_at) || 0;
 let filter = { query: "", type: "", noAudio: false, hard: false };
 export function setFilter(patch) { filter = { ...filter, ...patch }; renderLessons(); }
 
-// Ligne de filtres sous la recherche : Type d'entrée et « sans Vocal ».
+// Les filtres n'apparaissent que si on cherche ou qu'on les demande (bouton « Filtres »).
+let filtersOpen = false;
+export const showFilters = () => filtersOpen || isFiltering(filter);
+export function toggleFilters() { filtersOpen = !filtersOpen; }
+
+// Ligne de filtres sous la recherche : Type d'entrée, « sans Vocal », « Difficiles ».
 export function filtersHTML() {
   const chip = (attr, label, on) => `<button type="button" class="chip" ${attr} aria-pressed="${on}">${label}</button>`;
   return `<div class="chips filters" role="group" aria-label="Filtrer">
@@ -79,7 +85,8 @@ function emptyHTML() {
     <p>Choisis un premier thème pour créer une leçon, puis ajoute dedans des mots, des phrases, une image ou un vocal.</p>
     <div class="chips">${SUGGESTIONS.map((s, i) => `<button class="chip" type="button" data-sugg="${i}">${s[1]} ${esc(s[0])}</button>`).join("")}
     <button class="chip" type="button" id="customLesson">+ Autre thème</button></div>
-    <p class="err" id="suggErr" hidden></p></div>`;
+    <p class="err" id="suggErr" hidden></p>
+    <div class="label">Comment on s'en sert</div>${howtoHTML()}</div>`;
 }
 
 // Les Entrées d'une Leçon, dans l'ordre d'ajout.
@@ -87,13 +94,11 @@ const entriesOf = lessonId => carnet.state.entries.filter(e => e.lesson_id === l
 // À réviser maintenant dans une Leçon : Cartes à revoir et nouvelles (comme « Réviser cette leçon »).
 const toReview = lessonId => dailyItems(carnet.state.entries, carnet.state.progress, localToday(), { lessonId }).length;
 
-// Vue courante, d'après l'adresse : sommaire des Leçons ou page d'une Leçon.
+// Onglet « Leçons » : le sommaire (#/) ou la page d'une Leçon (#/lecon/<id>).
 export function renderLessons() {
   const route = currentRoute();
   const lesson = route.view === "lesson" && carnet.state.lessons.find(l => l.id === route.id);
   if (route.view === "lesson" && !lesson) { go({ view: "home" }); return; }   // Leçon supprimée
-  $("#home").hidden = Boolean(lesson);
-  $("#page").hidden = !lesson;
   if (lesson) renderLessonPage(lesson); else renderHome();
 }
 
@@ -123,7 +128,10 @@ function renderHome() {
       <span class="tile-meta">${words.length ? `${words.length} mot${words.length > 1 ? "s" : ""}` : "Vide"}${status ? ` · ${status}` : ""}</span>
       ${news ? `<span class="new-pill tile-new">${news} nouveau${news > 1 ? "x" : ""}</span>` : ""}
     </a>`;
-  }).join("")}</div>`;
+  }).join("")}
+    <button class="tile tile-add" type="button" data-newlesson><span class="tile-emo" aria-hidden="true">＋</span><span class="tile-title">Nouvelle leçon</span></button>
+  </div>`;
+  $("[data-newlesson]", list).onclick = () => openLesson();
 }
 
 // Recherche ou filtre actif : la liste des Entrées trouvées, toutes Leçons confondues.

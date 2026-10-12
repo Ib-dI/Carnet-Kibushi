@@ -1,76 +1,19 @@
 import { supabase, configured } from "./lib/supabase.js";
 import { createCarnet } from "./carnet/carnet.js";
 import { createSupabaseAdapter } from "./carnet/supabase-adapter.js";
-import { carnet, setCarnet } from "./ui/carnet-ref.js";
 import { createGate } from "./session/gate.js";
 import { $ } from "./ui/dom.js";
-import { renderLogin, renderPrivate, renderSetup, loggedInWithCode, askPassword } from "./ui/login.js";
-import { userbarHTML, headerHTML, bindHeader, renderHeader } from "./ui/header.js";
-import { renderLessons, setFilter, filtersHTML, bindFilters } from "./ui/lessons.js";
-import { openLesson } from "./ui/lesson-dialog.js";
-import { initReview, openReview, dueCount } from "./ui/review.js";
-import { reviewable } from "./revision/session.js";
-import { setSince } from "./ui/news-ref.js";
+import { renderLogin, renderPrivate, renderSetup } from "./ui/login.js";
+import { showCarnet } from "./ui/app-shell.js";
 
 const app = $("#app");
-
-function shell() {
-  app.innerHTML = `${userbarHTML()}
-    <div id="home">${headerHTML()}
-    <div class="tools">
-      <input id="search" class="search" type="search" placeholder="Chercher un mot, une traduction…" aria-label="Chercher">
-      <button id="revBtn" class="btn" type="button">Réviser</button>
-      <button id="newLesson" class="btn solid" type="button">+ Nouvelle leçon</button>
-    </div>
-    <div id="filters">${filtersHTML()}</div>
-    <div id="banner"></div>
-    <div id="list"><p class="status">Ouverture du carnet…</p></div>
-    </div>
-    <div id="page" hidden></div>`;
-  document.body.insertAdjacentHTML("beforeend", `
-    <dialog id="dlgEntry" aria-label="Entrée"><form class="dlg" id="formEntry" novalidate></form></dialog>
-    <dialog id="dlgLesson" aria-label="Leçon"><form class="dlg" id="formLesson" novalidate></form></dialog>
-    <dialog id="dlgRev" aria-label="Révision"><div class="rev" id="rev"></div></dialog>
-    <dialog id="dlgZoom" aria-label="Image en grand"><div class="zoom"><button class="btn small ghost" id="zoomClose" type="button">Fermer</button><img id="zoomImg" alt=""></div></dialog>`);
-
-  bindHeader();
-  bindFilters($("#filters"));
-  $("#search").addEventListener("input", ev => setFilter({ query: ev.target.value.trim() }));
-  $("#newLesson").onclick = () => openLesson();
-  $("#revBtn").onclick = () => openReview("");   // toutes les Leçons
-  window.addEventListener("hashchange", render);
-  $("#zoomClose").onclick = () => $("#dlgZoom").close();
-  // Clic sur le fond : ferme la photo et la révision (pas les formulaires, pour ne rien perdre).
-  ["#dlgZoom", "#dlgRev"].forEach(s => { const d = $(s); d.addEventListener("click", ev => { if (ev.target === d) d.close(); }); });
-  initReview();
-}
-
-function render() {
-  renderHeader();
-  renderLessons();
-  const btn = $("#revBtn"), due = dueCount();
-  btn.disabled = !carnet.state.entries.some(reviewable);
-  btn.textContent = due ? `Réviser (${due})` : "Réviser";
-}
-
-function showCarnet(c) {
-  setCarnet(c);
-  // Badge « nouveau » : ce qui a été ajouté par les autres depuis la visite précédente.
-  c.beginVisit().then(since => { setSince(since); render(); });
-  shell();
-  c.onChange(render);
-  render();
-  // Le temps réel ne rejoue pas ce qui a été manqué (téléphone en veille, onglet en arrière-plan).
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") c.resync(); });
-  if (loggedInWithCode()) askPassword();
-}
 
 const VIEWS = {
   login: () => renderLogin(app),
   loading: () => { app.innerHTML = `<p class="status">Ouverture du carnet…</p>`; },
   private: email => renderPrivate(app, email),
   offline: () => { app.innerHTML = `<p class="status">Le carnet ne répond pas. Vérifie ta connexion et recharge la page.</p>`; },
-  carnet: showCarnet,
+  carnet: c => showCarnet(app, c),
   reload: () => location.reload(),
 };
 

@@ -298,3 +298,39 @@ textarea.inp{min-height:76px;resize:vertical}
 .pg-block.flash{animation:flash 1.6s ease}
 @keyframes flash{0%,40%{background:color-mix(in srgb,var(--c) 18%,transparent)}100%{background:transparent}}
 @media (prefers-reduced-motion:reduce){ .pg-block.flash{animation:none;outline:2px solid var(--c)} }
+
+/* ===== Navigation : barre du haut + onglets ===== */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.topbar .userbar{margin-bottom:0}
+.brand{font-family:var(--f-display);font-weight:650;font-size:clamp(1.25rem,3.4vw,1.6rem);line-height:1.1;color:var(--ink);text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brand em{font-style:italic;color:var(--canard)}
+
+.tabbar{display:flex;gap:6px;justify-content:center;margin:0 auto 22px;padding:5px;max-width:420px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
+.tabbar a{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:999px;color:var(--muted);text-decoration:none;font-weight:700;font-size:.92rem}
+.tabbar a[aria-current="page"]{background:var(--ink);color:var(--paper)}
+.tabbar a:focus-visible{outline:2px solid var(--canard);outline-offset:2px}
+.tabbar .badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brique);color:var(--on-accent);font-size:.72rem;line-height:20px;text-align:center}
+
+/* Sur téléphone : les onglets en bas, sous le pouce */
+@media (max-width:640px){
+  .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:none;margin:0;border-radius:0;border-width:1px 0 0;padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:2px;box-shadow:0 -6px 20px rgb(0 0 0 / .08)}
+  .tabbar a{flex-direction:column;gap:2px;padding:6px 4px;border-radius:12px;font-size:.74rem}
+  .tabbar a > span:first-child{font-size:1.3rem;line-height:1}
+  .tabbar .badge{position:absolute;top:2px;left:calc(50% + 8px);min-width:18px;height:18px;line-height:18px;font-size:.68rem}
+  .topbar{margin-bottom:12px}
+}
+
+/* Accueil Leçons : recherche + filtres à la demande */
+#home .tools{margin:0 0 14px;flex-wrap:nowrap}
+#home .search{flex:1 1 auto}
+.tile-add{border:2px dashed var(--line);border-top:2px dashed var(--line);background:transparent;color:var(--muted);text-align:left;font:inherit;cursor:pointer;place-content:center}
+.tile-add .tile-emo{font-size:1.6rem;color:var(--canard)}
+.tile-add:hover,.tile-add:focus-visible{border-color:var(--canard);color:var(--ink)}
+
+/* Écrans Réviser et Progrès : en pleine page */
+#review .rev,#progress .rev{max-width:620px;margin:0 auto;padding:0;background:none}
+.rev-switch{justify-self:center;margin-top:4px}
+.howto{margin:0;padding-left:1.2em;display:grid;gap:6px;line-height:1.5}
+.welcome q{font-family:var(--f-display);font-style:italic}
+@media (max-width:640px){ .brand{white-space:normal;font-size:1.15rem} }

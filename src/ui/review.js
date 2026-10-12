@@ -6,8 +6,10 @@ import { dailyItems, localToday, nextProgress, nextReviews, daysBetween } from "
 import { $, $$, esc, colorVar, PLAY_ICON, lessonLabel } from "./dom.js";
 import { openAttempt } from "./attempt-dialog.js";
 import { streak, upcoming, mastery, MASTERED_BOX } from "../revision/stats.js";
+import { go, routeHash } from "./route.js";
 
-// mode : "jour" (Révision du jour, Boîtes de Leitner), "libre" (toutes les Cartes, par Leçon) ou "progres".
+// Écrans « Réviser » (#/reviser[/<leçon>]) et « Progrès » (#/progres).
+// mode : "jour" (Révision du jour, Boîtes de Leitner) ou "libre" (toutes les Cartes, par Leçon).
 // flash : où va la Carte qu'on vient de noter (« revient dans 3 jours »), affiché sur la suivante.
 // revSize : nombre de Cartes de la Révision du jour (0 = tout ce qui est à revoir).
 let session = null, mode = "jour", dir = "fr", revLesson = "", revSize = 0, saveFailed = false, flash = "";
@@ -34,7 +36,6 @@ function record(entryId, d, answer) {
 
 function buildDeck() {
   saveFailed = false; flash = "";
-  if (mode === "progres") { session = null; return; }
   if (mode === "libre") {
     // En écoute, seules les Cartes qui ont un Vocal.
     const pool = dir === "ec" ? carnet.state.entries.filter(e => e.audio_path) : carnet.state.entries;
@@ -53,6 +54,8 @@ const yes = () => answer("knew");
 const no = () => answer("again");
 const easy = () => answer("easy");
 const setMode = m => { mode = m; buildDeck(); draw(); };
+// Changer de Leçon passe par l'adresse : le bouton retour et les liens restent justes.
+const setLesson = id => go({ view: "review", lesson: id || undefined });
 
 // Nom de la Langue choisi dans l'en-tête (« Kibushi »), ou « langue » s'il n'est pas encore donné.
 const langName = () => (carnet.state.carnet.langue || "").trim() || "langue";
@@ -60,22 +63,23 @@ const capital = s => s.charAt(0).toUpperCase() + s.slice(1);
 const sensLabel = d => d === "fr" ? `Français → ${langName()}` : d === "lg" ? `${capital(langName())} → français` : "Écoute";
 
 function topHTML() {
-  const tab = (m, label) => `<button class="btn small ${mode === m ? "solid" : "ghost"}" type="button" data-mode="${m}" aria-pressed="${mode === m}">${label}</button>`;
-  const tabs = `<div class="rev-bar">${tab("jour", "Du jour")}${tab("libre", "Libre")}${tab("progres", "Progrès")}</div>`;
-  if (mode === "progres") return `<div class="label">Progrès</div>${tabs}`;
   const opts = `<select id="rL" class="inp" style="max-width:260px;justify-self:center" aria-label="Leçon à réviser"><option value="">Toutes les leçons</option>${carnet.state.lessons.map(l => `<option value="${esc(l.id)}" ${l.id === revLesson ? "selected" : ""}>${esc(lessonLabel(l))}</option>`).join("")}</select>`;
   if (mode === "jour") {
     const size = n => `<button class="chip" type="button" data-size="${n}" aria-pressed="${revSize === n}">${n || "Tout"}</button>`;
-    return `<div class="label">Révision du jour · devine avant de retourner</div>${tabs}${opts}
+    return `<div class="label">Révision du jour · devine avant de retourner</div>${opts}
       <div class="chips rev-size" role="group" aria-label="Combien de cartes">${SIZES.map(size).join("")}</div>`;
   }
   const dirBtn = (d, label) => `<button class="btn small ${dir === d ? "solid" : "ghost"}" type="button" data-dir="${d}" aria-pressed="${dir === d}">${label}</button>`;
-  return `<div class="label">Révision libre · devine avant de retourner</div>${tabs}${opts}
+  return `<div class="label">Révision libre · sans planning, toutes les cartes</div>${opts}
     <div class="rev-bar">${dirBtn("fr", esc(sensLabel("fr")))}${dirBtn("lg", esc(sensLabel("lg")))}${dirBtn("ec", "🎧 Écoute")}</div>`;
 }
 
 const DAY_NAMES = ["auj.", "demain"];
 const dayLabel = (d, i) => DAY_NAMES[i] || new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short" });
+
+export function renderProgress() {
+  $("#progress").innerHTML = `<div class="rev">${progressHTML()}</div>`;
+}
 
 function progressHTML() {
   const { entries, progress, lessons, review_days } = carnet.state;
@@ -89,7 +93,7 @@ function progressHTML() {
     <span class="m-name">${esc(lessonLabel(m.lesson))}</span>
     <span class="m-track" role="img" aria-label="${m.percent} % sues"><i style="width:${m.percent}%;--c:${colorVar(m.lesson.color)}"></i></span>
     <span class="m-pct">${m.percent} %</span></div>`).join("");
-  return `<div class="card-face progress-view">
+  return `<div class="label">Progrès</div><div class="card-face progress-view">
       <div class="big">${days ? `🔥 ${days} jour${days > 1 ? "s" : ""} d'affilée` : "Pas encore de série"}</div>
       <div class="q">${days ? "Révise chaque jour pour la prolonger." : "Fais ta Révision du jour pour commencer une série."}</div>
     </div>
@@ -103,16 +107,13 @@ function draw() {
   const r = $("#rev");
   const top = topHTML();
   const warn = saveFailed ? `<p class="err" role="alert">Certaines réponses n'ont pas été enregistrées. Vérifie ta connexion.</p>` : "";
-  let focus = "#rClose";
+  // Passer de la Révision du jour à la Révision libre (et inversement) : un simple lien, en bas.
+  const other = mode === "jour"
+    ? `<button class="mini rev-switch" type="button" data-mode="libre">Réviser librement toutes les cartes</button>`
+    : `<button class="mini rev-switch" type="button" data-mode="jour">← Révision du jour</button>`;
+  let focus = null;
   stopPlayback();
 
-  if (mode === "progres") {
-    r.innerHTML = top + progressHTML() + `<div class="rev-bar"><button class="btn" type="button" id="rClose">Fermer</button></div>`;
-    $$("[data-mode]", r).forEach(b => b.onclick = () => setMode(b.dataset.mode));
-    $("#rClose").onclick = () => $("#dlgRev").close();
-    $("#rClose").focus();
-    return;
-  }
   const cur = session.current, flipped = session.flipped;
   const note = flash ? `<p class="status rev-flash" role="status">${esc(flash)}</p>` : "";
   if (!session.total) {
@@ -121,12 +122,11 @@ function draw() {
     const empty = mode === "jour"
       ? `<div class="card-face"><div class="big">Tout est révisé ✓</div><div class="q">${nextLine}</div></div>`
       : `<p class="status">Aucune carte avec mot et traduction dans cette leçon.</p>`;
-    const libre = mode === "jour" ? `<button class="btn" type="button" data-mode="libre">Révision libre</button>` : "";
-    r.innerHTML = top + empty + `<div class="rev-bar">${libre}<button class="btn" type="button" id="rClose">Fermer</button></div>`;
+    r.innerHTML = top + empty + `<div class="rev-bar"><a class="btn" href="${routeHash({ view: "home" })}">Retour aux leçons</a></div>${other}`;
   } else if (!cur) {
     const again = mode === "libre" ? `<button class="btn solid" type="button" id="rAgain">Recommencer</button>` : "";
     r.innerHTML = top + note + `<div class="card-face"><div class="big">${session.score} / ${session.total}</div><div class="q">cartes que tu savais déjà${mode === "jour" ? " · à demain !" : ""}</div></div>${warn}
-      <div class="rev-bar">${again}<button class="btn" type="button" id="rClose">Fermer</button></div>`;
+      <div class="rev-bar">${again}<a class="btn" href="${routeHash({ view: "progress" })}">Voir mes progrès</a></div>${other}`;
     if (again) focus = "#rAgain";
   } else {
     const e = mode === "jour" ? cur.entry : cur, d = mode === "jour" ? cur.dir : dir;
@@ -149,7 +149,7 @@ function draw() {
       <div class="card-face">${hint && e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${hint && e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${tryBtn}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>${warn}
       <div class="rev-bar">${flipped
         ? `<button class="btn" type="button" id="rNo">À revoir</button><button class="btn solid" type="button" id="rYes">Je savais</button><button class="btn" type="button" id="rEasy" title="Ne la remontrer que dans 30 jours">Par cœur</button>`
-        : `<button class="btn solid" type="button" id="rFlip">Retourner la carte</button>`}<button class="btn ghost" type="button" id="rClose">Fermer</button></div>`;
+        : `<button class="btn solid" type="button" id="rFlip">Retourner la carte</button>`}</div>${other}`;
     focus = flipped ? "#rYes" : "#rFlip";
     if (e.image_path) mediaUrl(e.image_path).then(u => { const i = $("#rImg"); if (i) { if (u) i.src = u; else i.remove(); } });
     const p = $("#rPlay"); if (p) p.onclick = () => playPath(e.audio_path, p, "rev");
@@ -162,7 +162,7 @@ function draw() {
   }
 
   $$("[data-mode]", r).forEach(b => b.onclick = () => setMode(b.dataset.mode));
-  const sel = $("#rL"); if (sel) sel.onchange = ev => { revLesson = ev.target.value; buildDeck(); draw(); };
+  const sel = $("#rL"); if (sel) sel.onchange = ev => setLesson(ev.target.value);
   $$("[data-dir]", r).forEach(b => b.onclick = () => {
     const rebuild = (dir === "ec") !== (b.dataset.dir === "ec");   // le paquet change avec l'écoute
     dir = b.dataset.dir;
@@ -170,14 +170,13 @@ function draw() {
     draw();
   });
   $$("[data-size]", r).forEach(b => b.onclick = () => { revSize = +b.dataset.size; buildDeck(); draw(); });
-  $("#rClose").onclick = () => $("#dlgRev").close();
   $("#rAgain")?.addEventListener("click", () => { buildDeck(); draw(); });
-  $(focus)?.focus();
+  if (focus) $(focus)?.focus();
 }
 
-// Raccourcis : Espace = retourner, → = je savais, ← = à revoir, ↑ = par cœur.
+// Raccourcis : Espace = retourner, → = je savais, ← = à revoir, ↑ = par cœur (quand l'écran Réviser est affiché).
 function onKey(ev) {
-  if (ev.target.tagName === "SELECT" || !session?.current) return;
+  if ($("#review")?.hidden || ev.target.closest?.("input, select, textarea, dialog") || !session?.current) return;
   if (ev.key === " " && !session.flipped) { ev.preventDefault(); flip(); }
   else if (ev.key === "ArrowRight" && session.flipped) { ev.preventDefault(); yes(); }
   else if (ev.key === "ArrowLeft" && session.flipped) { ev.preventDefault(); no(); }
@@ -185,17 +184,25 @@ function onKey(ev) {
 }
 
 export function initReview() {
-  const dlg = $("#dlgRev");
-  dlg.addEventListener("keydown", onKey);
-  dlg.addEventListener("close", stopPlayback);
+  document.addEventListener("keydown", onKey);
 }
 
-// lessonId : réviser une seule Leçon (bouton « Réviser cette leçon »).
-export function openReview(lessonId) {
-  if (typeof lessonId === "string") revLesson = lessonId;
-  if (revLesson && !carnet.state.lessons.some(l => l.id === revLesson)) revLesson = "";
-  mode = "jour";   // même s'il n'y a rien à revoir : on l'affiche, sans basculer seul en libre
-  buildDeck();
-  $("#dlgRev").showModal();
+// La séance en cours est gardée si on revient sur l'écran (après avoir regardé une Leçon, par exemple) ;
+// elle repart de zéro si on change de Leçon ou si elle était terminée.
+let builtFor = null;
+export function renderReview(route) {
+  const key = route.lesson || "";
+  if (builtFor !== key || !session?.current) {
+    builtFor = key;
+    revLesson = carnet.state.lessons.some(l => l.id === key) ? key : "";
+    mode = "jour";
+    buildDeck();
+  }
   draw();
+  if (!session.flipped) $("#rFlip")?.focus({ preventScroll: true });
 }
+
+export const leaveReview = () => stopPlayback();
+
+// « Réviser cette leçon » (lessonId), ou toutes les Leçons.
+export const openReview = lessonId => go({ view: "review", lesson: lessonId || undefined });
