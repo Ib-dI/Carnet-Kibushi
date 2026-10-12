@@ -2,7 +2,7 @@ import { carnet } from "./carnet-ref.js";
 import { cachedUrl, mediaUrl } from "../lib/media.js";
 import { playPath, rebindPlaying } from "../lib/player.js";
 import { $, $$, esc, colorVar, pad, fmtDate, PLAY_ICON, SUGGESTIONS, TYPES, errorText, lessonLabel } from "./dom.js";
-import { entryFilter, isFiltering } from "./entry-filter.js";
+import { entryFilter, isFiltering, blockFilter } from "./entry-filter.js";
 import { hardEntryIds } from "../revision/schedule.js";
 import { openEntry } from "./entry-dialog.js";
 import { openLesson } from "./lesson-dialog.js";
@@ -130,13 +130,20 @@ function renderHome() {
 function renderResults(list) {
   const hard = hardEntryIds(carnet.state.progress), fresh = currentNews();
   const found = carnet.state.entries.filter(entryFilter(filter, hard)).sort((a, b) => time(a) - time(b));
-  if (!found.length) {
+  const blocks = carnet.state.blocks.filter(blockFilter(filter));
+  if (!found.length && !blocks.length) {
     list.innerHTML = `<p class="status">${filter.query ? `Aucun résultat pour « ${esc(filter.query)} ».` : "Aucune entrée ne correspond à ces filtres."}</p>`;
     return;
   }
   const lessonOf = id => carnet.state.lessons.find(l => l.id === id);
-  list.innerHTML = `<p class="status">${found.length} résultat${found.length > 1 ? "s" : ""}</p>
-    <div class="lesson results"><ul class="entries">${found.map(e => entryHTML(e, fresh, lessonOf(e.lesson_id))).join("")}</ul></div>`;
+  const n = found.length + blocks.length;
+  const notes = blocks.map(b => {
+    const l = lessonOf(b.lesson_id);
+    return `<a class="note-hit" href="${routeHash({ view: "lesson", id: b.lesson_id, at: b.id })}" style="--c:${colorVar(l?.color)}">
+      <span class="note-hit-where">📝 dans ${esc(l ? lessonLabel(l) : "une leçon")}</span>${blockHTML(b)}</a>`;
+  }).join("");
+  list.innerHTML = `<p class="status">${n} résultat${n > 1 ? "s" : ""}</p>${notes}
+    ${found.length ? `<div class="lesson results"><ul class="entries">${found.map(e => entryHTML(e, fresh, lessonOf(e.lesson_id))).join("")}</ul></div>` : ""}`;
   bindEntries(list);
 }
 
@@ -163,7 +170,7 @@ function renderLessonPage(l) {
         <button type="button" class="chip ghost" data-new="" aria-label="Annuler">✕</button></div></li>`
     : `<li class="pg-insert"><button type="button" class="pg-plus" data-insert="${i}" aria-label="Ajouter ici">+</button></li>`;
   const row = (it, i) => it.kind === "block"
-    ? `<li class="pg-block ${edit ? "editing" : ""}">${blockHTML(it.item)}${tools(it, i)}</li>`
+    ? `<li class="pg-block ${edit ? "editing" : ""}" data-bid="${esc(it.item.id)}">${blockHTML(it.item)}${tools(it, i)}</li>`
     : entryHTML(it.item, fresh).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
 
   page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""}" style="--c:${colorVar(l.color)}">
@@ -182,8 +189,15 @@ function renderLessonPage(l) {
         : `<li class="empty-l">Rien encore dans cette leçon. Ajoute un mot, ou passe en « ✎ Modifier la page » pour écrire librement.</li>`}</ul>
       ${edit ? "" : `<div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>`}
     </article>`;
-  if (!sameLesson) { page.dataset.lesson = l.id; window.scrollTo(0, 0); $("h2", page).focus({ preventScroll: true }); }
+  if (!sameLesson) { page.dataset.lesson = l.id; page.dataset.at = ""; window.scrollTo(0, 0); $("h2", page).focus({ preventScroll: true }); }
   else if (focusSel) page.querySelector(focusSel)?.focus();
+  // Arrivée depuis une recherche : on montre le bloc trouvé, un court instant surligné.
+  const at = currentRoute().at, target = at && page.querySelector(`[data-bid="${CSS.escape(at)}"]`);
+  if (target && page.dataset.at !== at) {
+    page.dataset.at = at;
+    target.scrollIntoView({ block: "center" });
+    target.classList.add("flash");
+  }
 
   const rerender = () => renderLessonPage(l);
   $("[data-review]", page)?.addEventListener("click", () => openReview(l.id));

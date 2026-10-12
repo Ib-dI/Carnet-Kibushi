@@ -8,6 +8,11 @@ describe("route", () => {
     expect(parseRoute("#/lecon/abc-123")).toEqual({ view: "lesson", id: "abc-123" });
   });
 
+  it("can point at a block in the page", () => {
+    expect(parseRoute("#/lecon/abc/b-1")).toEqual({ view: "lesson", id: "abc", at: "b-1" });
+    expect(routeHash({ view: "lesson", id: "abc", at: "b 1" })).toBe("#/lecon/abc/b%201");
+  });
+
   it("falls back to the sommaire for anything else", () => {
     expect(parseRoute("#/nimporte")).toEqual({ view: "home" });
     expect(parseRoute("#/lecon/")).toEqual({ view: "home" });

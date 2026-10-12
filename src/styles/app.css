@@ -291,3 +291,10 @@ textarea.inp{min-height:76px;resize:vertical}
 .pg-insert.open{padding:8px 0}
 .pg-insert .chips{justify-content:center}
 .pg-insert .chip{padding:5px 12px;font-size:.85rem}
+
+/* Recherche : un bloc trouvé dans une page */
+.note-hit{display:grid;gap:6px;margin-bottom:12px;padding:12px 14px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c);color:var(--ink);text-decoration:none}
+.note-hit-where{font-size:.8rem;font-weight:700;color:var(--muted)}
+.pg-block.flash{animation:flash 1.6s ease}
+@keyframes flash{0%,40%{background:color-mix(in srgb,var(--c) 18%,transparent)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){ .pg-block.flash{animation:none;outline:2px solid var(--c)} }

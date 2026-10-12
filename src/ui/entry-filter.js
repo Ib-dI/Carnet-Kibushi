@@ -13,3 +13,9 @@ export function entryFilter({ query = "", type = "", noAudio = false, hard = fal
     return true;
   };
 }
+
+// Blocs de texte libre : seulement pour une recherche par texte (les autres filtres portent sur les Entrées).
+export function blockFilter({ query = "", type = "", noAudio = false, hard = false } = {}) {
+  const q = query.toLowerCase();
+  return b => Boolean(q) && !type && !noAudio && !hard && [b.title, b.body].some(x => (x || "").toLowerCase().includes(q));
+}

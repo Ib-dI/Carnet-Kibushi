@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { entryFilter, isFiltering } from "./entry-filter.js";
+import { entryFilter, isFiltering, blockFilter } from "./entry-filter.js";
 
 const e = (extra = {}) => ({ type: "mot", word: "mbote", pron: "m-bo-té", translation: "bonjour", note: "le matin", audio_path: "audio/a.webm", ...extra });
 
@@ -38,5 +38,19 @@ describe("entryFilter", () => {
     expect(f(e({ audio_path: null }))).toBe(true);
     expect(f(e())).toBe(false);
     expect(isFiltering({ noAudio: true })).toBe(true);
+  });
+});
+
+describe("blockFilter", () => {
+  const b = (extra = {}) => ({ type: "callout", title: "Pour l'exploiter", body: "Prédis avec **logique**", ...extra });
+  it("searches a block's text and title, ignoring case", () => {
+    expect(blockFilter({ query: "LOGIQUE" })(b())).toBe(true);
+    expect(blockFilter({ query: "exploiter" })(b())).toBe(true);
+    expect(blockFilter({ query: "soir" })(b())).toBe(false);
+  });
+  it("only applies to a text search: other filters are about Entrées", () => {
+    expect(blockFilter({ query: "" })(b())).toBe(false);
+    expect(blockFilter({ query: "logique", type: "mot" })(b())).toBe(false);
+    expect(blockFilter({ query: "logique", noAudio: true })(b())).toBe(false);
   });
 });

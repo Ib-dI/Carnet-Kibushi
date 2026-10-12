@@ -26,6 +26,14 @@ _À éviter_ : auteur, créateur, propriétaire
 Un thème qui regroupe des Entrées (salutations, famille, cuisine…). Les Leçons sont ordonnées.
 _À éviter_ : chapitre, catégorie, thème (comme nom d'objet)
 
+**Page** :
+Ce qu'on voit en ouvrant une Leçon : ses Blocs et ses Entrées, mêlés dans l'ordre choisi par les Membres.
+_À éviter_ : fiche, document
+
+**Bloc** :
+Un morceau de texte libre dans une Page : texte, titre, liste, liste numérotée, citation, encadré ou séparateur. Un Bloc n'est jamais révisé.
+_À éviter_ : note (déjà un champ de l'Entrée), paragraphe
+
 **Entrée** :
 Un élément noté dans une Leçon : un Mot, une Phrase, une Expression ou un Conseil.
 _À éviter_ : carte (réservé à la Révision), fiche, item
