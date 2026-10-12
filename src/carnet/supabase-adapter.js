@@ -1,7 +1,7 @@
 // Adaptateur de production : db et storage du Carnet sur Supabase.
+import { realtimeTables } from "./tables.js";
 
 const BUCKET = "media";
-const REALTIME_TABLES = ["carnet", "lessons", "entries", "blocks", "progress", "attempts", "comments"];
 
 const check = ({ data, error }) => { if (error) throw error; return data; };
 
@@ -15,7 +15,7 @@ export function createSupabaseAdapter(supabase) {
     remove: async (table, id) => { check(await supabase.from(table).delete().eq("id", id)); },
     subscribe(onEvent, onStatus) {
       const channel = supabase.channel("carnet");
-      REALTIME_TABLES.forEach(table => channel.on("postgres_changes", { event: "*", schema: "public", table }, p =>
+      realtimeTables.forEach(table => channel.on("postgres_changes", { event: "*", schema: "public", table }, p =>
         onEvent({ table, type: p.eventType, row: p.eventType === "DELETE" ? p.old : p.new })));
       channel.subscribe(status => onStatus(status));
       return () => supabase.removeChannel(channel);

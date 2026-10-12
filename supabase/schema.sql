@@ -1,5 +1,6 @@
 -- Carnet de langue partagé — à exécuter une fois dans Supabase → SQL Editor.
 -- Les adresses autorisées sont dans la table members, plus bas.
+-- Une table ajoutée ici se déclare aussi dans src/carnet/tables.js (le test tables.test.js vérifie l'accord).
 
 -- Extensions
 create extension if not exists pgcrypto;

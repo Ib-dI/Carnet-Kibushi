@@ -1,25 +1,14 @@
 // Adaptateur en mémoire : un faux Supabase partagé, pour les tests.
 // Un même serveur peut servir plusieurs Membres connectés en même temps.
 
-// Tables dont les lignes appartiennent à un Membre (colonne qui le porte) : seul lui peut les écrire.
-const OWNED = { progress: "member_email", attempts: "member_email", comments: "author_email", visits: "member_email", review_days: "member_email" };
-// Parmi elles, celles que les autres Membres ne voient même pas (RLS).
-const PRIVATE = new Set(["progress", "visits", "review_days"]);
-// Suppressions en cascade (on delete cascade côté base) : table → [table enfant, colonne de lien].
-const CHILDREN = { lessons: [["entries", "lesson_id"], ["blocks", "lesson_id"]], entries: [["progress", "entry_id"], ["attempts", "entry_id"], ["comments", "entry_id"]] };
+// Propriétaires, confidentialité (RLS), cascades et auteurs : comme la base, d'après le registre (tables.js).
+import { tableNames, childrenOf, ownerOf, isPrivate, authorOf } from "./tables.js";
 
 export function createMemoryServer({ members = [], langue = "" } = {}) {
   const tables = {
+    ...Object.fromEntries(tableNames.map(t => [t, []])),
     members: members.map(m => ({ ...m })),
-    blocks: [],
     carnet: [{ id: 1, langue }],
-    lessons: [],
-    entries: [],
-    progress: [],
-    attempts: [],
-    comments: [],
-    visits: [],
-    review_days: [],
   };
   const files = new Map();
   const subscribers = new Set();
@@ -35,16 +24,16 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
   };
   const same = (a, b) => (a || "").toLowerCase() === (b || "").toLowerCase();
   const isMember = email => tables.members.some(m => same(m.email, email));
-  const visible = (table, row, email) => !PRIVATE.has(table) || same(row[OWNED[table]], email);
-  const writable = (table, row, email) => !OWNED[table] || same(row[OWNED[table]], email);
-  const owner = (table, row) => PRIVATE.has(table) ? row[OWNED[table]] : null;
+  const visible = (table, row, email) => !isPrivate(table) || same(row[ownerOf(table)], email);
+  const writable = (table, row, email) => !ownerOf(table) || same(row[ownerOf(table)], email);
+  const owner = (table, row) => isPrivate(table) ? row[ownerOf(table)] : null;
   // Le temps réel respecte RLS : une ligne privée ne part qu'à son Membre.
   const broadcast = (change, owner) => subscribers.forEach(s =>
     s.connected && (!owner || same(s.email, owner)) && s.onEvent(structuredClone(change)));
   const now = () => new Date(Date.UTC(2026, 0, 1, 0, 0, clock++)).toISOString();
 
   function removeRow(table, row) {
-    for (const [child, key] of CHILDREN[table] || []) {
+    for (const [child, key] of childrenOf(table)) {
       tables[child].filter(r => r[key] === row.id).forEach(r => removeRow(child, r));
     }
     tables[table] = tables[table].filter(r => r !== row);
@@ -55,8 +44,8 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
     const guard = () => { if (!isMember(email)) throw new Error("RLS"); };
     const stamp = (table, row) => {
       const saved = { id: `${table}-${++seq}`, created_at: now(), ...row };
-      if (OWNED[table]) saved[OWNED[table]] = email;
-      if (table === "entries" || table === "blocks") { saved.author_email = email; saved.updated_at = saved.created_at; }
+      if (ownerOf(table)) saved[ownerOf(table)] = email;
+      if (authorOf(table)) { saved[authorOf(table)] = email; saved.updated_at = saved.created_at; }
       return saved;
     };
     const db = {
@@ -82,7 +71,7 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
       // Insère ou met à jour la ligne qui a les mêmes valeurs pour `keys` (le Membre est ajouté d'office).
       async upsert(table, row, keys) {
         fail("upsert"); guard();
-        const full = OWNED[table] ? { ...row, [OWNED[table]]: email } : row;
+        const full = ownerOf(table) ? { ...row, [ownerOf(table)]: email } : row;
         const existing = tables[table].find(r => keys.every(k => r[k] === full[k]));
         if (!existing) return db.insert(table, row);
         Object.assign(existing, row);

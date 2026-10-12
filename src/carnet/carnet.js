@@ -5,9 +5,9 @@ import { reduce, emptyState, fromLoad } from "./reduce.js";
 import { mediaTarget } from "./media-path.js";
 import { nextProgress } from "../revision/schedule.js";
 import { pageItems, positionOf, positionBetween, BLOCK_KINDS } from "./page.js";
+import { tableNames } from "./tables.js";
 
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
-const TABLES = ["carnet", "lessons", "entries", "blocks", "members", "progress", "attempts", "comments", "visits", "review_days"];
 export const MAX_COMMENT = 1000;
 
 const ok = value => (value === undefined ? { ok: true } : { ok: true, value });
@@ -31,8 +31,8 @@ export function createCarnet({ db, storage, me }) {
   async function load() {
     pending = [];
     try {
-      const rows = await Promise.all(TABLES.map(t => db.list(t)));
-      const loaded = Object.fromEntries(TABLES.map((t, i) => [t, rows[i]]));
+      const rows = await Promise.all(tableNames.map(t => db.list(t)));
+      const loaded = Object.fromEntries(tableNames.map((t, i) => [t, rows[i]]));
       state = fromLoad({ ...loaded, carnet: loaded.carnet[0] });
     } finally {
       const queued = pending; pending = null;
