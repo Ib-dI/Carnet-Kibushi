@@ -189,9 +189,10 @@ textarea.inp{min-height:76px;resize:vertical}
 .pass{width:100%;min-width:0}
 
 /* Bouton de thème (Auto / Clair / Sombre) */
-.theme-btn{display:inline-flex;align-items:center;gap:6px}
-.theme-btn span{font-size:.85em}
-@media (max-width:480px){ .theme-btn span{display:none} }
+.theme-btn{flex:none;width:38px;height:38px;padding:0;display:grid;place-items:center;border-radius:50%;border:1.5px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.theme-btn:hover{border-color:var(--ink)}
+.theme-btn:focus-visible{outline:2px solid var(--canard);outline-offset:2px}
+.theme-btn svg{display:block}
 
 /* Révision : où va la Carte qu'on vient de noter */
 .rev-flash{text-align:center;font-weight:700;color:var(--canard)}
@@ -334,3 +335,4 @@ textarea.inp{min-height:76px;resize:vertical}
 .howto{margin:0;padding-left:1.2em;display:grid;gap:6px;line-height:1.5}
 .welcome q{font-family:var(--f-display);font-style:italic}
 @media (max-width:640px){ .brand{white-space:normal;font-size:1.15rem} }
+.emo.num{font-family:var(--f-display);font-weight:650;font-size:1.05rem;color:var(--c);font-variant-numeric:tabular-nums}

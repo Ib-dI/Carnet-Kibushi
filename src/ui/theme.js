@@ -2,10 +2,12 @@
 // Le choix est appliqué avant l'affichage par un petit script dans index.html.
 
 const KEY = "carnet.theme";
+// Icônes dessinées sur la même grille (20 × 20) : le bouton garde exactement la même taille.
+const svg = d => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 export const THEMES = {
-  auto: { label: "Thème auto", short: "Auto", icon: "◐" },
-  light: { label: "Thème clair", short: "Clair", icon: "☀︎" },
-  dark: { label: "Thème sombre", short: "Sombre", icon: "☾" },
+  auto: { label: "Thème auto", short: "Auto", icon: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>') },
+  light: { label: "Thème clair", short: "Clair", icon: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>') },
+  dark: { label: "Thème sombre", short: "Sombre", icon: svg('<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>') },
 };
 const ORDER = Object.keys(THEMES);
 const BAR = { light: "#FAF6EE", dark: "#17181D" };   // couleur de la barre du navigateur (voir tokens.css)
@@ -29,15 +31,15 @@ export function applyTheme(t) {
 
 export const themeButtonHTML = () => {
   const t = THEMES[currentTheme()];
-  return `<button class="btn small ghost theme-btn" type="button" data-theme-toggle aria-label="${t.label} (changer)" title="${t.label}">${t.icon}<span>${t.short}</span></button>`;
+  return `<button class="theme-btn" type="button" data-theme-toggle aria-label="${t.label} (changer)" title="${t.label}">${t.icon}</button>`;
 };
 
 export function bindTheme(root = document) {
   root.querySelectorAll("[data-theme-toggle]").forEach(b => b.onclick = () => {
     const t = nextTheme(currentTheme());
     applyTheme(t);
-    const { label, short, icon } = THEMES[t];
-    b.innerHTML = `${icon}<span>${short}</span>`;
+    const { label, icon } = THEMES[t];
+    b.innerHTML = icon;
     b.setAttribute("aria-label", `${label} (changer)`);
     b.title = label;
   });

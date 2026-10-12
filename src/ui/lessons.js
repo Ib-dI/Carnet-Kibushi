@@ -47,7 +47,8 @@ export function bindFilters(root) {
 }
 
 // inLesson : en résultats de recherche, la Leçon où se trouve l'Entrée (lien vers sa page).
-function entryHTML(e, fresh, inLesson) {
+// num : rang du mot dans la page (affiché dans la pastille quand il n'a pas d'emoji).
+function entryHTML(e, fresh, inLesson, num) {
   const tc = e.text_color ? `--tc:${colorVar(e.text_color)};` : "";
   const who = carnet.authorName(e.author_email);
   const tries = carnet.attemptsOf(e.id).length;
@@ -68,7 +69,7 @@ function entryHTML(e, fresh, inLesson) {
       ${thumb}${metaLine}</div></li>`;
   }
   return `<li class="entry ${e.type === "phrase" ? "phrase" : ""}" style="${tc}">
-    <div class="emo" aria-hidden="true">${e.emoji ? esc(e.emoji) : "·"}</div>
+    <div class="emo ${e.emoji ? "" : "num"}" aria-hidden="true">${e.emoji ? esc(e.emoji) : num ?? "·"}</div>
     <div class="e-main">
       <div class="word">${esc(e.word || "…")}</div>
       ${e.pron ? `<div class="pron">[ ${esc(e.pron)} ]</div>` : ""}
@@ -177,9 +178,11 @@ function renderLessonPage(l) {
         ${BLOCK_TYPES.map(([t, label]) => `<button type="button" class="chip" data-new="${t}">${esc(label)}</button>`).join("")}
         <button type="button" class="chip ghost" data-new="" aria-label="Annuler">✕</button></div></li>`
     : `<li class="pg-insert"><button type="button" class="pg-plus" data-insert="${i}" aria-label="Ajouter ici">+</button></li>`;
+  // Numéro de chaque mot dans la page (les blocs de texte ne comptent pas).
+  const nums = new Map(items.filter(it => it.kind === "entry").map((it, k) => [it.item.id, k + 1]));
   const row = (it, i) => it.kind === "block"
     ? `<li class="pg-block ${edit ? "editing" : ""}" data-bid="${esc(it.item.id)}">${blockHTML(it.item)}${tools(it, i)}</li>`
-    : entryHTML(it.item, fresh).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
+    : entryHTML(it.item, fresh, null, nums.get(it.item.id)).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
 
   page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""}" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
