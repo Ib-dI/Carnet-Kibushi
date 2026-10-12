@@ -15,6 +15,7 @@ import { reviewable } from "../revision/session.js";
 import { openReview } from "./review.js";
 import { openBlock } from "./block-dialog.js";
 import { howtoHTML } from "./header.js";
+import { onLongPress } from "./long-press.js";
 import { blockHTML, BLOCK_TYPES } from "./rich.js";
 import { positionAt, positionOf } from "../carnet/page.js";
 
@@ -123,7 +124,7 @@ function renderHome() {
     const words = entriesOf(l.id), due = toReview(l.id);
     const news = words.filter(e => fresh.entries.has(e.id)).length;
     const status = !words.some(reviewable) ? "" : due ? `<b>${due} à réviser</b>` : `<span class="ok">✓ à jour</span>`;
-    return `<a class="tile" href="${routeHash({ view: "lesson", id: l.id })}" style="--c:${colorVar(l.color)}">
+    return `<a class="tile" href="${routeHash({ view: "lesson", id: l.id })}" data-lesson="${esc(l.id)}" style="--c:${colorVar(l.color)}">
       <span class="tile-emo" aria-hidden="true">${esc(l.emoji || "📒")}</span>
       <span class="tile-title">${esc(l.title)}</span>
       <span class="tile-meta">${words.length ? `${words.length} mot${words.length > 1 ? "s" : ""}` : "Vide"}${status ? ` · ${status}` : ""}</span>
@@ -133,6 +134,49 @@ function renderHome() {
     <button class="tile tile-add" type="button" data-newlesson><span class="tile-emo" aria-hidden="true">＋</span><span class="tile-title">Nouvelle leçon</span></button>
   </div>`;
   $("[data-newlesson]", list).onclick = () => openLesson();
+  $$("[data-lesson]", list).forEach(t => onLongPress(t, () => {
+    const l = carnet.state.lessons.find(x => x.id === t.dataset.lesson);
+    if (l) openLessonMenu(l);
+  }));
+}
+
+// Menu d'une Leçon (appui long sur sa tuile) : modifier, ou supprimer avec confirmation.
+function openLessonMenu(l) {
+  $("#dlgLMenu")?.remove();
+  const words = entriesOf(l.id).length, nb = carnet.state.blocks.filter(b => b.lesson_id === l.id).length;
+  document.body.insertAdjacentHTML("beforeend", `<dialog id="dlgLMenu" aria-label="${esc(l.title)}"><div class="dlg lmenu" style="--c:${colorVar(l.color)}">
+      <h3>${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h3>
+      <div class="lmenu-actions" id="lmActions">
+        <button type="button" class="menu-item" data-lm="open">📖 Ouvrir la leçon</button>
+        <button type="button" class="menu-item" data-lm="edit">✎ Modifier (titre, emoji, couleur)</button>
+        <button type="button" class="menu-item danger-text" data-lm="delete">🗑 Supprimer la leçon</button>
+      </div>
+      <div class="actions"><span></span><div class="right"><button class="btn ghost" type="button" data-lm="close">Annuler</button></div></div>
+    </div></dialog>`);
+  const dlg = $("#dlgLMenu");
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.addEventListener("click", ev => { if (ev.target === dlg) dlg.close(); });
+  const act = {
+    open: () => { dlg.close(); go({ view: "lesson", id: l.id }); },
+    edit: () => { dlg.close(); openLesson(l); },
+    close: () => dlg.close(),
+    delete: () => {
+      const what = (k, one, many) => k === 1 ? `son ${one}` : `ses ${k} ${many}`;
+      const also = [words && what(words, "mot", "mots"), nb && what(nb, "bloc de texte", "blocs de texte")].filter(Boolean).join(" et ");
+      $("#lmActions").innerHTML = `<p class="confirm">Supprimer « ${esc(l.title)} »${also ? `, avec ${also}` : ""} ? C'est définitif.</p>
+        <button type="button" class="btn danger" id="lmYes">Oui, supprimer</button>`;
+      $("#lmYes").focus();
+      $("#lmYes").onclick = async () => {
+        $("#lmYes").disabled = true;
+        const r = await carnet.deleteLesson(l);
+        if (r.ok) { dlg.close(); return; }
+        $("#lmActions").insertAdjacentHTML("beforeend", `<p class="err" role="alert">${esc(errorText(r))}</p>`);
+      };
+    },
+  };
+  dlg.addEventListener("click", ev => { const k = ev.target.closest("[data-lm]")?.dataset.lm; if (k) act[k](); });
+  dlg.showModal();
+  $("[data-lm=open]", dlg).focus();
 }
 
 // Recherche ou filtre actif : la liste des Entrées trouvées, toutes Leçons confondues.

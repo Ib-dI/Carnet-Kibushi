@@ -339,3 +339,11 @@ textarea.inp{min-height:76px;resize:vertical}
 .danger-zone{display:flex;justify-content:center;border-top:1px dashed var(--line);margin-top:8px}
 .danger-zone .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;text-align:center}
 #lIdeas .chip{padding:5px 11px;font-size:.85rem}
+
+/* Appui long sur une tuile : pas de sélection de texte ni d'aperçu de lien (iOS) */
+.tile{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.lmenu h3{color:var(--c)}
+.lmenu-actions{display:grid;gap:4px}
+.lmenu-actions .menu-item{font-size:1rem;padding:12px}
+.danger-text{color:var(--brique)}
+.lmenu-actions .confirm{margin:0 0 8px;font-weight:600}
