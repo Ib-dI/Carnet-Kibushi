@@ -13,6 +13,9 @@ import { currentRoute, routeHash, go } from "./route.js";
 import { dailyItems, localToday } from "../revision/schedule.js";
 import { reviewable } from "../revision/session.js";
 import { openReview } from "./review.js";
+import { openBlock } from "./block-dialog.js";
+import { blockHTML, BLOCK_TYPES } from "./rich.js";
+import { positionAt, positionOf } from "../carnet/page.js";
 
 const time = e => Date.parse(e.created_at) || 0;
 
@@ -137,30 +140,69 @@ function renderResults(list) {
   bindEntries(list);
 }
 
+// Leçon dont la page est en mode « Modifier la page » (poignées visibles), et point d'insertion ouvert.
+let editing = null, inserting = null;
+
 function renderLessonPage(l) {
   const page = $("#page"), fresh = currentNews();
+  if (editing !== l.id) { editing = null; inserting = null; }
   const index = carnet.state.lessons.indexOf(l), es = entriesOf(l.id), due = toReview(l.id);
+  const items = carnet.pageOf(l.id), edit = editing === l.id;
   const sameLesson = page.dataset.lesson === l.id;
   const focusSel = sameLesson ? focusSelector(document.activeElement, page) : null;
-  page.innerHTML = `<article class="lesson page" style="--c:${colorVar(l.color)}">
+
+  const tools = (it, i) => !edit ? "" : `<div class="pg-tools">
+      ${it.kind === "block" && it.item.type !== "divider" ? `<button type="button" class="pg-btn" data-bedit="${i}" aria-label="Modifier ce bloc">✎</button>` : ""}
+      ${it.kind === "block" && it.item.type === "divider" ? `<button type="button" class="pg-btn" data-bdel="${i}" aria-label="Supprimer ce séparateur">🗑</button>` : ""}
+      <button type="button" class="pg-btn" data-up="${i}" aria-label="Monter" ${i === 0 ? "disabled" : ""}>↑</button>
+      <button type="button" class="pg-btn" data-down="${i}" aria-label="Descendre" ${i === items.length - 1 ? "disabled" : ""}>↓</button></div>`;
+  const insert = i => !edit ? "" : inserting === i
+    ? `<li class="pg-insert open"><div class="chips">
+        <button type="button" class="chip" data-new="entry">Mot, phrase…</button>
+        ${BLOCK_TYPES.map(([t, label]) => `<button type="button" class="chip" data-new="${t}">${esc(label)}</button>`).join("")}
+        <button type="button" class="chip ghost" data-new="" aria-label="Annuler">✕</button></div></li>`
+    : `<li class="pg-insert"><button type="button" class="pg-plus" data-insert="${i}" aria-label="Ajouter ici">+</button></li>`;
+  const row = (it, i) => it.kind === "block"
+    ? `<li class="pg-block ${edit ? "editing" : ""}">${blockHTML(it.item)}${tools(it, i)}</li>`
+    : entryHTML(it.item, fresh).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
+
+  page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""}" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
         <a class="back" href="${routeHash({ view: "home" })}">‹ Leçons</a>
         <div class="label">Leçon ${index + 1} · ${es.length} mot${es.length > 1 ? "s" : ""}</div>
         <span class="lesson-num" aria-hidden="true">${pad(index + 1)}</span>
         <h2 tabindex="-1">${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h2>
         <div class="page-actions">
-          ${es.some(reviewable) ? `<button class="btn small page-review" type="button" data-review>${due ? `Réviser cette leçon (${due})` : "✓ À jour · réviser quand même"}</button>` : ""}
-          <button class="edit" type="button" data-ledit="${esc(l.id)}">Modifier la leçon</button>
+          ${!edit && es.some(reviewable) ? `<button class="btn small page-review" type="button" data-review>${due ? `Réviser cette leçon (${due})` : "✓ À jour · réviser quand même"}</button>` : ""}
+          <button class="edit" type="button" data-pedit>${edit ? "✓ Terminé" : "✎ Modifier la page"}</button>
+          ${edit ? `<button class="edit" type="button" data-ledit="${esc(l.id)}">Titre, emoji, couleur…</button>` : ""}
         </div>
       </div>
-      <ul class="entries">${es.length ? es.map(e => entryHTML(e, fresh)).join("") : `<li class="empty-l">Rien encore dans cette leçon.</li>`}</ul>
-      <div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>
+      <ul class="entries page-blocks">${items.length || edit ? items.map((it, i) => insert(i) + row(it, i)).join("") + insert(items.length)
+        : `<li class="empty-l">Rien encore dans cette leçon. Ajoute un mot, ou passe en « ✎ Modifier la page » pour écrire librement.</li>`}</ul>
+      ${edit ? "" : `<div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>`}
     </article>`;
   if (!sameLesson) { page.dataset.lesson = l.id; window.scrollTo(0, 0); $("h2", page).focus({ preventScroll: true }); }
   else if (focusSel) page.querySelector(focusSel)?.focus();
+
+  const rerender = () => renderLessonPage(l);
   $("[data-review]", page)?.addEventListener("click", () => openReview(l.id));
-  $("[data-ledit]", page).onclick = () => openLesson(l);
-  $("[data-add]", page).onclick = () => openEntry(null, l.id);
+  $("[data-ledit]", page)?.addEventListener("click", () => openLesson(l));
+  $("[data-add]", page)?.addEventListener("click", () => openEntry(null, l.id));
+  $("[data-pedit]", page).onclick = () => { editing = edit ? null : l.id; inserting = null; rerender(); };
+  $$("[data-insert]", page).forEach(b => b.onclick = () => { inserting = +b.dataset.insert; rerender(); $("[data-new]", page)?.focus(); });
+  $$("[data-new]", page).forEach(b => b.onclick = async () => {
+    const kind = b.dataset.new, position = positionAt(items.map(it => ({ position: positionOf(it) })), inserting);
+    inserting = null;
+    if (kind === "entry") openEntry(null, l.id, { position });
+    else if (kind === "divider") await carnet.saveBlock(null, { lesson_id: l.id, type: "divider", position });
+    else if (kind) openBlock(null, { lesson_id: l.id, type: kind, position });
+    rerender();
+  });
+  $$("[data-bedit]", page).forEach(b => b.onclick = () => openBlock(items[+b.dataset.bedit].item));
+  $$("[data-bdel]", page).forEach(b => b.onclick = () => carnet.deleteBlock(items[+b.dataset.bdel].item));
+  $$("[data-up]", page).forEach(b => b.onclick = () => carnet.move(items[+b.dataset.up], "up"));
+  $$("[data-down]", page).forEach(b => b.onclick = () => carnet.move(items[+b.dataset.down], "down"));
   bindEntries(page);
 }
 
@@ -187,7 +229,7 @@ function bindEntries(root) {
 
 function focusSelector(el, list) {
   if (!el || !list.contains(el)) return null;
-  for (const k of ["edit", "try", "comments", "play", "ledit", "add", "img"]) {
+  for (const k of ["edit", "try", "comments", "play", "ledit", "add", "img", "pedit", "insert", "up", "down", "bedit"]) {
     const v = el.dataset?.[k];
     if (v) return `[data-${k}="${CSS.escape(v)}"]`;
   }

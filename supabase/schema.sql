@@ -61,6 +61,7 @@ create table public.entries (
   image_path text,
   audio_path text,
   author_email text,
+  position double precision,   -- place dans la page de la Leçon (voir blocks)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -235,3 +236,24 @@ alter table public.review_days enable row level security;
 create policy "chacun ses jours de révision" on public.review_days for all to authenticated
   using ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'))
   with check ((select private.is_member()) and member_email = (select auth.jwt() ->> 'email'));
+
+-- Pages de Leçon : blocs de texte libre mêlés aux Entrées, dans un même ordre (`position`).
+create table public.blocks (
+  id uuid primary key default gen_random_uuid(),
+  lesson_id uuid not null references public.lessons(id) on delete cascade,
+  position double precision not null,
+  type text not null check (type in ('text', 'title', 'list', 'numbered', 'quote', 'callout', 'divider')),
+  body text not null default '' check (char_length(body) <= 5000),
+  title text not null default '' check (char_length(title) <= 200),
+  color text not null default '' check (color in ('', 'brique', 'canard', 'ocre', 'prune', 'indigo', 'olive')),
+  author_email text default (auth.jwt() ->> 'email'),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index blocks_lesson_id_idx on public.blocks (lesson_id, position);
+revoke all on public.blocks from anon;
+grant select, insert, update, delete on public.blocks to authenticated;
+alter table public.blocks enable row level security;
+create policy "membres blocs" on public.blocks for all to authenticated
+  using ((select private.is_member())) with check ((select private.is_member()));
+alter publication supabase_realtime add table public.blocks;

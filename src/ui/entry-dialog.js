@@ -11,7 +11,8 @@ const MIC_FAILED = "Le micro ne répond pas. Choisis plutôt un fichier audio.";
 const MIC_SILENT = "Aucun son n'a été capté : le micro n'est sans doute pas autorisé pour ce navigateur. Sur Mac : Réglages Système → Confidentialité et sécurité → Micro. Ou essaie dans Chrome ou Safari.";
 const EMPTY_ENTRY = "Écris au moins le mot, la traduction, ou ajoute un vocal.";
 
-export function openEntry(e, lessonId) {
+// position : où placer une nouvelle Entrée dans la page (par défaut, à la fin).
+export function openEntry(e, lessonId, { position } = {}) {
   const dlg = $("#dlgEntry"), f = $("#formEntry");
   const st = {
     type: e ? e.type : "mot", emoji: e ? e.emoji || "" : "", tc: e ? e.text_color || "" : "",
@@ -171,6 +172,7 @@ export function openEntry(e, lessonId) {
     const r = await carnet.saveEntry(e || null, {
       type: st.type, word: st.values.word, pron: st.values.pron, translation: st.values.tr, note: st.values.note,
       emoji: st.emoji, text_color: st.tc, lesson_id: st.lesson,
+      ...(position != null && st.lesson === lessonId ? { position } : {}),
       image: st.image.change.replace ? { replace: await resizeImage(st.image.change.replace) } : st.image.change,
       audio: st.audio.change,
     });

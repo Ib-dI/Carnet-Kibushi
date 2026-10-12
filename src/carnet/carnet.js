@@ -4,9 +4,10 @@
 import { reduce, emptyState, fromLoad } from "./reduce.js";
 import { mediaTarget } from "./media-path.js";
 import { nextProgress } from "../revision/schedule.js";
+import { pageItems, positionOf, positionBetween, BLOCK_KINDS } from "./page.js";
 
 export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
-const TABLES = ["carnet", "lessons", "entries", "members", "progress", "attempts", "comments", "visits", "review_days"];
+const TABLES = ["carnet", "lessons", "entries", "blocks", "members", "progress", "attempts", "comments", "visits", "review_days"];
 export const MAX_COMMENT = 1000;
 
 const ok = value => (value === undefined ? { ok: true } : { ok: true, value });
@@ -62,6 +63,13 @@ export function createCarnet({ db, storage, me }) {
   // Tous les fichiers d'Entrées : leurs Médias et les Essais de chacun.
   const filesOf = entries => entries.flatMap(e =>
     [e.image_path, e.audio_path, ...state.attempts.filter(t => t.entry_id === e.id).map(t => t.audio_path)]);
+
+  // Position juste après le dernier élément de la page d'une Leçon.
+  const endOf = lessonId => {
+    const items = pageItems(state, lessonId);
+    return items.length ? Math.max(...items.map(positionOf)) + 1 : 1;
+  };
+  const positionTable = kind => kind === "block" ? "blocks" : "entries";
 
   return {
     get state() { return state; },
@@ -125,6 +133,8 @@ export function createCarnet({ db, storage, me }) {
           pron: draft.type === "conseil" ? "" : (draft.pron || "").trim(),
           note: (draft.note || "").trim(), emoji: draft.emoji || "", text_color: draft.text_color || "",
           lesson_id: draft.lesson_id, image_path: paths.image, audio_path: paths.audio,
+          // Nouvelle Entrée, ou changement de Leçon : à l'endroit demandé, sinon en fin de page.
+          ...(!existing || existing.lesson_id !== draft.lesson_id ? { position: draft.position ?? endOf(draft.lesson_id) } : {}),
         };
         const row = existing ? await db.update("entries", existing.id, body) : await db.insert("entries", body);
         apply({ table: "entries", type: existing ? "UPDATE" : "INSERT", row });
@@ -236,6 +246,56 @@ export function createCarnet({ db, storage, me }) {
         return ok(row);
       } catch (e) {
         console.warn("markReviewDay", e);
+        return fail("network");
+      }
+    },
+
+    // La page d'une Leçon : blocs et Entrées dans l'ordre ([{ kind, item, rank }], voir page.js).
+    pageOf: lessonId => pageItems(state, lessonId),
+
+    // Bloc de texte libre. Nouveau : { lesson_id, type, body, title?, color?, position? } (fin de page par défaut).
+    // Existant : seuls les champs donnés changent.
+    async saveBlock(existing, fields) {
+      const type = fields.type ?? existing?.type;
+      if (!BLOCK_KINDS.includes(type)) return fail("invalid");
+      const patch = Object.fromEntries(["type", "body", "title", "color"].filter(k => k in fields).map(k => [k, fields[k] ?? ""]));
+      try {
+        const row = existing
+          ? await db.update("blocks", existing.id, patch)
+          : await db.insert("blocks", { lesson_id: fields.lesson_id, body: "", ...patch, type, position: fields.position ?? endOf(fields.lesson_id) });
+        apply({ table: "blocks", type: existing ? "UPDATE" : "INSERT", row });
+        return ok(row);
+      } catch (e) {
+        console.warn("saveBlock", e);
+        return fail("network");
+      }
+    },
+
+    async deleteBlock(block) {
+      try { await db.remove("blocks", block.id); }
+      catch (e) { console.warn("deleteBlock", e); return fail("network"); }
+      apply({ table: "blocks", type: "DELETE", row: block });
+      return ok();
+    },
+
+    // Monter (dir "up") ou descendre ("down") un élément de page d'un cran.
+    async move(pageItem, dir) {
+      const lessonId = pageItem.item.lesson_id;
+      try {
+        // Les Entrées d'avant les pages reçoivent d'abord leur position, pour que l'ordre reste stable.
+        for (const it of pageItems(state, lessonId).filter(it => it.item.position == null)) {
+          apply({ table: "entries", type: "UPDATE", row: await db.update("entries", it.item.id, { position: positionOf(it) }) });
+        }
+        const items = pageItems(state, lessonId);
+        const i = items.findIndex(it => it.kind === pageItem.kind && it.item.id === pageItem.item.id);
+        const at = k => (items[k] ? positionOf(items[k]) : null);
+        if (i === -1 || (dir === "up" && i === 0) || (dir === "down" && i === items.length - 1)) return ok();
+        const position = dir === "up" ? positionBetween(at(i - 2), at(i - 1)) : positionBetween(at(i + 1), at(i + 2));
+        const table = positionTable(pageItem.kind);
+        apply({ table, type: "UPDATE", row: await db.update(table, pageItem.item.id, { position }) });
+        return ok();
+      } catch (e) {
+        console.warn("move", e);
         return fail("network");
       }
     },

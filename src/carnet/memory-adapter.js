@@ -6,11 +6,12 @@ const OWNED = { progress: "member_email", attempts: "member_email", comments: "a
 // Parmi elles, celles que les autres Membres ne voient même pas (RLS).
 const PRIVATE = new Set(["progress", "visits", "review_days"]);
 // Suppressions en cascade (on delete cascade côté base) : table → [table enfant, colonne de lien].
-const CHILDREN = { lessons: [["entries", "lesson_id"]], entries: [["progress", "entry_id"], ["attempts", "entry_id"], ["comments", "entry_id"]] };
+const CHILDREN = { lessons: [["entries", "lesson_id"], ["blocks", "lesson_id"]], entries: [["progress", "entry_id"], ["attempts", "entry_id"], ["comments", "entry_id"]] };
 
 export function createMemoryServer({ members = [], langue = "" } = {}) {
   const tables = {
     members: members.map(m => ({ ...m })),
+    blocks: [],
     carnet: [{ id: 1, langue }],
     lessons: [],
     entries: [],
@@ -55,7 +56,7 @@ export function createMemoryServer({ members = [], langue = "" } = {}) {
     const stamp = (table, row) => {
       const saved = { id: `${table}-${++seq}`, created_at: now(), ...row };
       if (OWNED[table]) saved[OWNED[table]] = email;
-      if (table === "entries") { saved.author_email = email; saved.updated_at = saved.created_at; }
+      if (table === "entries" || table === "blocks") { saved.author_email = email; saved.updated_at = saved.created_at; }
       return saved;
     };
     const db = {

@@ -464,3 +464,74 @@ describe("review days", () => {
     expect(await a.markReviewDay("2026-10-11")).toEqual({ ok: false, reason: "network" });
   });
 });
+
+describe("pages : blocs et positions", () => {
+  let a, b, lesson;
+  beforeEach(async () => {
+    a = (await open(ALICE)).carnet;
+    b = (await open(BOB)).carnet;
+    lesson = (await a.saveLesson(null, { title: "Salutations" })).value;
+  });
+  const order = c => pageItemsOf(c).map(i => i.kind === "block" ? `b:${i.item.body}` : `e:${i.item.word}`);
+  const pageItemsOf = c => c.pageOf(lesson.id);
+
+  it("new Entrées go to the end of their Leçon's page", async () => {
+    await a.saveBlock(null, { lesson_id: lesson.id, type: "title", body: "Le matin" });
+    await a.saveEntry(null, draft(lesson.id, { word: "mbote" }));
+    await a.saveEntry(null, draft(lesson.id, { word: "kwaheri" }));
+    expect(order(a)).toEqual(["b:Le matin", "e:mbote", "e:kwaheri"]);
+  });
+
+  it("inserts a block at a given position, seen by the other Membre", async () => {
+    await a.saveEntry(null, draft(lesson.id, { word: "mbote" }));
+    await a.saveEntry(null, draft(lesson.id, { word: "kwaheri" }));
+    const [first, second] = a.pageOf(lesson.id);
+    const r = await a.saveBlock(null, { lesson_id: lesson.id, type: "callout", body: "règle", color: "ocre", position: (first.item.position + second.item.position) / 2 });
+    expect(r.ok).toBe(true);
+    await tick();
+    expect(order(b)).toEqual(["e:mbote", "b:règle", "e:kwaheri"]);
+    expect(b.state.blocks[0]).toMatchObject({ type: "callout", color: "ocre", author_email: ALICE });
+  });
+
+  it("edits and deletes a block", async () => {
+    const { value: blk } = await a.saveBlock(null, { lesson_id: lesson.id, type: "text", body: "brouillon" });
+    await b.saveBlock(blk, { body: "propre" });
+    await tick();
+    expect(a.state.blocks[0].body).toBe("propre");
+    expect(await a.deleteBlock(blk)).toEqual({ ok: true });
+    await tick();
+    expect(b.state.blocks).toEqual([]);
+  });
+
+  it("refuses an unknown block type", async () => {
+    expect(await a.saveBlock(null, { lesson_id: lesson.id, type: "video", body: "x" })).toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("moves a block or an Entrée up and down the page", async () => {
+    await a.saveBlock(null, { lesson_id: lesson.id, type: "text", body: "A" });
+    await a.saveEntry(null, draft(lesson.id, { word: "mbote" }));
+    await a.saveBlock(null, { lesson_id: lesson.id, type: "text", body: "C" });
+    const items = a.pageOf(lesson.id);
+    expect((await a.move(items[2], "up")).ok).toBe(true);
+    expect(order(a)).toEqual(["b:A", "b:C", "e:mbote"]);
+    await a.move(a.pageOf(lesson.id)[0], "down");
+    expect(order(a)).toEqual(["b:C", "b:A", "e:mbote"]);
+    expect((await a.move(a.pageOf(lesson.id)[0], "up")).ok).toBe(true);   // déjà en haut : rien à faire
+    expect(order(a)).toEqual(["b:C", "b:A", "e:mbote"]);
+  });
+
+  it("an Entrée moved to another Leçon goes to the end of that page", async () => {
+    const other = (await a.saveLesson(null, { title: "Famille" })).value;
+    await a.saveEntry(null, draft(other.id, { word: "mama" }));
+    const { value: e } = await a.saveEntry(null, draft(lesson.id, { word: "baba" }));
+    await a.saveEntry(e, draft(other.id, { word: "baba" }));
+    expect(a.pageOf(other.id).map(i => i.item.word)).toEqual(["mama", "baba"]);
+  });
+
+  it("deleting the Leçon removes its blocks", async () => {
+    await a.saveBlock(null, { lesson_id: lesson.id, type: "text", body: "x" });
+    await a.deleteLesson(lesson);
+    expect(a.state.blocks).toEqual([]);
+    expect(server.tables.blocks).toEqual([]);
+  });
+});

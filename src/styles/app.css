@@ -264,3 +264,30 @@ textarea.inp{min-height:76px;resize:vertical}
 @media (max-width:520px){ .tiles{grid-template-columns:1fr 1fr;gap:10px} .tile{padding:14px 12px 12px} .tile-title{font-size:1.1rem} }
 .lesson.page{animation:none}
 @media (max-width:520px){ .tools .btn{white-space:nowrap;padding-inline:14px} }
+
+/* Page de Leçon : blocs de texte libre */
+.page-blocks .pg-block{position:relative;padding:10px 0;list-style:none}
+.b-text{margin:0;line-height:1.6}
+.b-title{font-family:var(--f-display);font-weight:650;font-size:1.35rem;margin:6px 0 0;color:var(--c,var(--ink))}
+.b-list,.b-numbered{margin:0;padding-left:1.3em;display:grid;gap:6px;line-height:1.5}
+.b-numbered{list-style:none;padding-left:0;counter-reset:n}
+.b-numbered li{counter-increment:n;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+.b-numbered li:last-child{border-bottom:0;padding-bottom:0}
+.b-numbered li::before{content:counter(n);display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--c,var(--brique));color:var(--on-accent);font-weight:800;font-size:.85rem}
+.b-quote{margin:0;padding:2px 0 2px 16px;border-left:4px solid var(--line);font-style:italic;color:var(--muted);line-height:1.6}
+.b-divider{border:0;border-top:2px solid var(--line);margin:6px 0}
+.b-callout{background:color-mix(in srgb,var(--c) 14%,var(--card));border-radius:12px;padding:14px 16px;display:grid;gap:6px}
+.b-callout-title{font-weight:800;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--c)}
+.b-callout p{margin:0;line-height:1.55}
+.block-preview{border:1px dashed var(--line);border-radius:10px;padding:12px;min-height:44px}
+
+/* Mode « Modifier la page » */
+.pg-tools{display:flex;gap:4px;justify-content:flex-end;margin-top:6px}
+.pg-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:.95rem}
+.pg-btn:disabled{opacity:.35}
+.pg-insert{list-style:none;display:flex;justify-content:center;padding:2px 0}
+.pg-plus{width:30px;height:30px;border-radius:50%;border:1.5px dashed color-mix(in srgb,var(--c) 60%,var(--line));background:transparent;color:var(--c);font-weight:800;font-size:1.1rem;line-height:1}
+.pg-plus:hover,.pg-plus:focus-visible{background:color-mix(in srgb,var(--c) 14%,transparent)}
+.pg-insert.open{padding:8px 0}
+.pg-insert .chips{justify-content:center}
+.pg-insert .chip{padding:5px 12px;font-size:.85rem}

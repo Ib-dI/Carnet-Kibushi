@@ -1,7 +1,7 @@
 // Adaptateur de production : db et storage du Carnet sur Supabase.
 
 const BUCKET = "media";
-const REALTIME_TABLES = ["carnet", "lessons", "entries", "progress", "attempts", "comments"];
+const REALTIME_TABLES = ["carnet", "lessons", "entries", "blocks", "progress", "attempts", "comments"];
 
 const check = ({ data, error }) => { if (error) throw error; return data; };
 
