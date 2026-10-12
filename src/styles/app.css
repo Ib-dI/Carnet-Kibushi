@@ -336,3 +336,6 @@ textarea.inp{min-height:76px;resize:vertical}
 .welcome q{font-family:var(--f-display);font-style:italic}
 @media (max-width:640px){ .brand{white-space:normal;font-size:1.15rem} }
 .emo.num{font-family:var(--f-display);font-weight:650;font-size:1.05rem;color:var(--c);font-variant-numeric:tabular-nums}
+.danger-zone{display:flex;justify-content:center;border-top:1px dashed var(--line);margin-top:8px}
+.danger-zone .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;text-align:center}
+#lIdeas .chip{padding:5px 11px;font-size:.85rem}

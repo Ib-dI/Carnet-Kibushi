@@ -198,7 +198,8 @@ function renderLessonPage(l) {
       </div>
       <ul class="entries page-blocks">${items.length || edit ? items.map((it, i) => insert(i) + row(it, i)).join("") + insert(items.length)
         : `<li class="empty-l">Rien encore dans cette leçon. Ajoute un mot, ou passe en « ✎ Modifier la page » pour écrire librement.</li>`}</ul>
-      ${edit ? "" : `<div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>`}
+      ${edit ? `<div class="lesson-foot danger-zone" id="lDelZone2"><button class="btn small danger" type="button" data-ldel>🗑 Supprimer cette leçon</button></div>`
+        : `<div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>`}
     </article>`;
   if (!sameLesson) { page.dataset.lesson = l.id; page.dataset.at = ""; window.scrollTo(0, 0); $("h2", page).focus({ preventScroll: true }); }
   else if (focusSel) page.querySelector(focusSel)?.focus();
@@ -215,6 +216,23 @@ function renderLessonPage(l) {
   $("[data-ledit]", page)?.addEventListener("click", () => openLesson(l));
   $("[data-add]", page)?.addEventListener("click", () => openEntry(null, l.id));
   $("[data-pedit]", page).onclick = () => { editing = edit ? null : l.id; inserting = null; rerender(); };
+  // Supprimer la Leçon (mode « Modifier la page ») : confirmation sur place, qui dit ce qui part avec elle.
+  $("[data-ldel]", page)?.addEventListener("click", () => {
+    const zone = $("#lDelZone2"), nb = items.length - es.length;
+    const what = (k, one, many) => k === 1 ? `son ${one}` : `ses ${k} ${many}`;
+    const also = [es.length && what(es.length, "mot", "mots"), nb && what(nb, "bloc de texte", "blocs de texte")].filter(Boolean).join(" et ");
+    zone.innerHTML = `<span class="confirm">Supprimer « ${esc(l.title)} »${also ? `, avec ${also}` : ""} ?
+      <button class="btn small danger" type="button" id="lDelYes2">Oui, supprimer</button>
+      <button class="btn small ghost" type="button" id="lDelNo2">Non</button></span>`;
+    $("#lDelYes2").focus();
+    $("#lDelNo2").onclick = rerender;
+    $("#lDelYes2").onclick = async () => {
+      $("#lDelYes2").disabled = true;
+      const r = await carnet.deleteLesson(l);
+      if (r.ok) { editing = null; go({ view: "home" }); return; }
+      zone.innerHTML = `<p class="err" role="alert">${esc(errorText(r))}</p>`;
+    };
+  });
   $$("[data-insert]", page).forEach(b => b.onclick = () => { inserting = +b.dataset.insert; rerender(); $("[data-new]", page)?.focus(); });
   $$("[data-new]", page).forEach(b => b.onclick = async () => {
     const kind = b.dataset.new, position = positionAt(items.map(it => ({ position: positionOf(it) })), inserting);

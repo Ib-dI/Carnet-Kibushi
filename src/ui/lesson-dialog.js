@@ -1,6 +1,6 @@
 import { carnet } from "./carnet-ref.js";
 import { go, currentRoute } from "./route.js";
-import { $, $$, esc, COLORS, EMOJIS, errorText } from "./dom.js";
+import { $, $$, esc, COLORS, EMOJIS, SUGGESTIONS, errorText } from "./dom.js";
 
 const EMPTY_TITLE = "Donne un nom au thème.";
 
@@ -10,8 +10,13 @@ export function openLesson(l) {
   let emoji = l ? l.emoji || "" : "";
   const lessonEntries = () => l ? carnet.state.entries.filter(e => e.lesson_id === l.id) : [];
 
+  // Nouvelle Leçon : des idées de thèmes, sans ceux qui existent déjà ; un toucher remplit titre, emoji et couleur.
+  const taken = new Set(carnet.state.lessons.map(x => x.title.trim().toLowerCase()));
+  const ideas = l ? [] : SUGGESTIONS.filter(s => !taken.has(s[0].toLowerCase()));
+
   const draw = (title = l ? l.title : "") => {
     f.innerHTML = `<h3>${l ? "Modifier la leçon" : "Nouvelle leçon"}</h3>
+      ${ideas.length ? `<div class="field"><span>Des idées ?</span><div class="chips" id="lIdeas">${ideas.map((s, i) => `<button type="button" class="chip" data-idea="${i}" aria-pressed="${s[0] === title}">${s[1]} ${esc(s[0])}</button>`).join("")}</div></div>` : ""}
       <label class="field"><span>Thème</span><input id="lTitle" class="inp big" required placeholder="Ex. Les salutations" value="${esc(title)}"></label>
       <div class="field"><span>Emoji</span><div class="emojis" id="lEmo">${EMOJIS.map(x => `<button type="button" aria-pressed="${x === emoji}">${x}</button>`).join("")}</div></div>
       <div class="field"><span>Couleur du bandeau</span><div class="swatches" id="lCol">${COLORS.map(c => `<button type="button" class="sw" style="--s:var(--${c[0]})" data-c="${c[0]}" aria-label="${c[1]}" aria-pressed="${c[0] === color}"></button>`).join("")}</div></div>
@@ -27,6 +32,12 @@ export function openLesson(l) {
       color = b.dataset.c;
       $$("#lCol .sw", f).forEach(x => x.setAttribute("aria-pressed", x.dataset.c === color));
     });
+    $$("[data-idea]", f).forEach(b => b.onclick = () => {
+      const [t, e, c] = ideas[+b.dataset.idea];
+      emoji = e; color = c;
+      draw(t);
+      $("#lSave").focus();
+    });
     $("#lCancel").onclick = () => dlg.close();
     if (l) $("#lDel").onclick = confirmDelete;
   };
@@ -34,8 +45,10 @@ export function openLesson(l) {
   const showErr = msg => { const e = $("#lErr"); e.hidden = false; e.textContent = msg; };
 
   const confirmDelete = () => {
-    const count = lessonEntries().length;
-    $("#lDelZone").innerHTML = `<span class="confirm">${count ? `Supprimer aussi ses ${count} entrée${count > 1 ? "s" : ""} ?` : "Supprimer ?"}
+    const n = lessonEntries().length, nb = carnet.state.blocks.filter(b => b.lesson_id === l.id).length;
+    const what = (k, one, many) => k === 1 ? `son ${one}` : `ses ${k} ${many}`;
+    const also = [n && what(n, "mot", "mots"), nb && what(nb, "bloc de texte", "blocs de texte")].filter(Boolean).join(" et ");
+    $("#lDelZone").innerHTML = `<span class="confirm">${also ? `Supprimer la leçon, avec ${also} ?` : "Supprimer la leçon ?"}
       <button class="btn small danger" type="button" id="lDelYes">Oui</button><button class="btn small ghost" type="button" id="lDelNo">Non</button></span>`;
     $("#lDelNo").onclick = () => { draw($("#lTitle").value); $("#lDel").focus(); };
     $("#lDelYes").focus();
