@@ -56,23 +56,65 @@ function cardHTML(st) {
   const hint = !(listen && !flipped);
   const tryBtn = flipped ? `<button class="mini" type="button" id="rTry">🎙 Mon essai</button>` : "";
   const sens = st.mode === "jour" ? ` · ${esc(sensLabel(d))}` : "";
+  const emoji = show => show && e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : "";
+  // Carte à deux faces : le recto reste dessous une fois retournée (pour le retournement), sans image ni ▶.
+  const recto = flipped
+    ? `<div class="card-face front" inert aria-hidden="true">${emoji(!listen)}${front}</div>`
+    : `<div class="card-face front">${emoji(hint)}${hint && e.image_path ? `<img id="rImg" alt="">` : ""}${front}${play}</div>`;
+  const verso = flipped
+    ? `<div class="card-face back">${emoji(hint)}${hint && e.image_path ? `<img id="rImg" alt="">` : ""}${back}${play}${tryBtn}${e.note ? `<div class="note">${esc(e.note)}</div>` : ""}</div>`
+    : "";
   return `<div class="count" aria-live="polite">Carte ${st.position + 1} sur ${st.count}${sens}</div>
-    <div class="card-face">${hint && e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${hint && e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${tryBtn}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>`;
+    <div class="rev-card ${flipped ? "" : "can-flip"}"><div class="rev-tilt">
+      <div class="rev-flip ${flipped ? "flipped" : ""}">${recto}${verso}</div>
+      <div class="rev-glare" aria-hidden="true"><div class="rev-shine"></div></div>
+    </div></div>`;
+}
+
+// Carte « Pokémon » : à la souris, elle s'incline vers le curseur et un reflet glisse dessus ;
+// elle revient à plat en douceur quand le curseur s'en va. Ni au toucher, ni en mouvement réduit.
+const TILT_MAX = 8;   // degrés
+function bindTilt() {
+  const card = $("#rev .rev-card"), tilt = card && $(".rev-tilt", card), shine = card && $(".rev-shine", card);
+  if (!tilt || !matchMedia("(hover: hover) and (pointer: fine)").matches || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  let frame = 0;
+  card.addEventListener("pointermove", ev => {
+    if (ev.pointerType !== "mouse") return;
+    const r = card.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width, y = (ev.clientY - r.top) / r.height;
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      card.classList.add("tilting");
+      tilt.style.transform = `rotateX(${((0.5 - y) * 2 * TILT_MAX).toFixed(2)}deg) rotateY(${((x - 0.5) * 2 * TILT_MAX).toFixed(2)}deg)`;
+      shine.style.transform = `translate(${((x - 0.5) * 50).toFixed(1)}%, ${((y - 0.5) * 50).toFixed(1)}%)`;
+    });
+  });
+  card.addEventListener("pointerleave", () => {
+    cancelAnimationFrame(frame);
+    card.classList.remove("tilting");
+    tilt.style.transform = "";
+    shine.style.transform = "";
+  });
 }
 
 // Mouvement de la carte après un clic ou un toucher (jamais au clavier) : elle se retourne, ou la suivante arrive.
-const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)", EASE_IN_OUT = "cubic-bezier(0.77, 0, 0.175, 1)";
 function animateCard(kind) {
-  const face = $("#rev .card-face");
-  if (!face || !face.animate) return;
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    face.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 150, easing: "ease" });
+  const card = $("#rev .rev-card");
+  if (!card?.animate) return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (kind === "flip") {
+    // La carte est déjà dessinée retournée : on joue le demi-tour depuis le recto.
+    if (reduce) $(".back", card)?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: "ease" });
+    else {
+      // Le reflet est à plat sur la carte inclinée : on le cache le temps du demi-tour.
+      card.classList.add("flipping");
+      $(".rev-flip", card).animate([{ transform: "rotateY(0deg)" }, { transform: "rotateY(180deg)" }], { duration: 300, easing: EASE_IN_OUT })
+        .finished.then(() => card.classList.remove("flipping"), () => {});
+    }
     return;
   }
-  const frames = kind === "flip"
-    ? [{ transform: "perspective(900px) rotateY(-90deg)", opacity: 0.4 }, { transform: "none", opacity: 1 }]
-    : [{ transform: "translateX(16px)", opacity: 0 }, { transform: "none", opacity: 1 }];
-  face.animate(frames, { duration: kind === "flip" ? 260 : 200, easing: EASE_OUT });
+  if (reduce) card.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 150, easing: "ease" });
+  else card.animate([{ transform: "translateX(16px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 200, easing: EASE_OUT });
 }
 
 // Fin de Révision : le score apparaît, puis la série (une seule fois par écran de fin).
@@ -125,11 +167,20 @@ function draw() {
     const p = $("#rPlay"); if (p) p.onclick = () => playPath(e.audio_path, p, "rev");
     if (p && listen && !st.flipped) playPath(e.audio_path, p, "rev");   // l'écoute démarre seule
     $("#rTry")?.addEventListener("click", () => openAttempt(e));
+    bindTilt();
   }
 
   const act = fn => () => { fn(); draw(); };
-  const card = (fn, kind) => () => { fn(); draw(); if (kind === "flip" || (screen.state.card && !screen.state.done)) animateCard(kind); };
+  const card = (fn, kind) => () => {
+    // Au retournement, la carte redessinée garde l'inclinaison qu'elle avait sous la souris (pas de saut).
+    const was = $("#rev .rev-card"), tilted = kind === "flip" && was?.classList.contains("tilting") ? $(".rev-tilt", was).style.transform : "";
+    fn(); draw();
+    if (tilted) { const now = $("#rev .rev-card"); now?.classList.add("tilting"); if (now) $(".rev-tilt", now).style.transform = tilted; }
+    if (kind === "flip" || (screen.state.card && !screen.state.done)) animateCard(kind);
+  };
   $("#rFlip")?.addEventListener("click", card(() => screen.flip(), "flip"));
+  // Toucher la carte (ailleurs que sur ▶) la retourne aussi.
+  $("#rev .rev-card.can-flip")?.addEventListener("click", ev => { if (!ev.target.closest("button, a, img")) card(() => screen.flip(), "flip")(); });
   $("#rYes")?.addEventListener("click", card(() => screen.answer("knew"), "next"));
   $("#rNo")?.addEventListener("click", card(() => screen.answer("again"), "next"));
   $("#rEasy")?.addEventListener("click", card(() => screen.answer("easy"), "next"));

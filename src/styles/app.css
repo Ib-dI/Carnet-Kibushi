@@ -144,6 +144,25 @@ textarea.inp{min-height:76px;resize:vertical}
 .card-face .q{color:var(--muted)}
 .card-face .big{font-family:var(--f-display);font-weight:650;font-size:clamp(1.6rem,5vw,2.3rem);line-height:1.15;overflow-wrap:anywhere}
 .card-face img{max-height:150px;border-radius:8px}
+/* Carte de Révision : deux faces superposées qui se retournent, inclinaison et reflet à la souris */
+.rev-card{perspective:1000px}
+.rev-card.can-flip{cursor:pointer}
+.rev-tilt{position:relative;border-radius:12px;transform-style:preserve-3d;transition:transform 300ms var(--ease-out)}
+.rev-card.tilting .rev-tilt{transition:transform 80ms linear}
+.rev-flip{display:grid;transform-style:preserve-3d}
+.rev-flip > .card-face{grid-area:1 / 1;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.rev-flip .card-face.back{transform:rotateY(180deg)}
+.rev-flip.flipped{transform:rotateY(180deg)}
+.rev-glare{position:absolute;inset:0;border-radius:12px;overflow:hidden;pointer-events:none;opacity:0;transition:opacity 300ms var(--ease-out)}
+.rev-shine{position:absolute;inset:-50%;background:linear-gradient(115deg,transparent 35%,rgb(255 255 255 / .22) 45%,rgb(140 210 255 / .16) 50%,rgb(255 160 220 / .16) 55%,transparent 65%)}
+@media (hover:hover) and (pointer:fine){ .rev-card.tilting .rev-glare{opacity:1} }
+.rev-card.flipping .rev-glare{opacity:0;transition:none}
+@media (prefers-reduced-motion:reduce){
+  .rev-tilt,.rev-glare{transition:none}
+  .rev-flip.flipped{transform:none}
+  .rev-flip.flipped .card-face.front{visibility:hidden}
+  .rev-flip .card-face.back{transform:none}
+}
 .rev-bar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem}
 .rev-streak{font-weight:800;color:var(--brique)}
