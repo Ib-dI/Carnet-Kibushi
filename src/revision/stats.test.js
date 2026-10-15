@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { streak, upcoming, mastery, lessonStatus } from "./stats.js";
+import { streak, recentDays, upcoming, mastery, lessonStatus } from "./stats.js";
 
 const TODAY = "2026-10-11";
 const e = (id, lesson_id, extra = {}) => ({ id, type: "mot", word: `w${id}`, translation: `t${id}`, lesson_id, ...extra });
@@ -21,12 +21,30 @@ describe("streak", () => {
   });
 });
 
+describe("recentDays", () => {
+  it("the last days up to today, oldest first, with what was done", () => {
+    expect(recentDays(["2026-10-09", "2026-10-11"], TODAY, 3)).toEqual([
+      { day: "2026-10-09", done: true, today: false },
+      { day: "2026-10-10", done: false, today: false },
+      { day: "2026-10-11", done: true, today: true },
+    ]);
+  });
+});
+
 describe("upcoming", () => {
   it("counts items due each of the next days, overdue ones counted today", () => {
     const entries = [e("a", "L"), e("b", "L")];
     const progress = [p("a", "fr", 1, "2026-10-01"), p("a", "lg", 2, "2026-10-12"), p("b", "fr", 2, "2026-10-12"), p("b", "lg", 3, "2026-10-20")];
     expect(upcoming(entries, progress, TODAY, 3)).toEqual([
-      { day: "2026-10-11", count: 1 }, { day: "2026-10-12", count: 2 }, { day: "2026-10-13", count: 0 },
+      { day: "2026-10-11", count: 1, fresh: 0 }, { day: "2026-10-12", count: 2, fresh: 0 }, { day: "2026-10-13", count: 0, fresh: 0 },
+    ]);
+  });
+
+  it("today is the Révision du jour: new Cartes count too, like the Réviser badge", () => {
+    const entries = [e("a", "L"), e("n", "L")];
+    const progress = [p("a", "fr", 1, TODAY), p("a", "lg", 2, "2026-10-12")];
+    expect(upcoming(entries, progress, TODAY, 2)).toEqual([
+      { day: TODAY, count: 3, fresh: 2 }, { day: "2026-10-12", count: 1, fresh: 0 },
     ]);
   });
 });
@@ -37,8 +55,8 @@ describe("mastery", () => {
     const entries = [e("a", "L", { audio_path: "x" }), e("b", "L"), e("c", "L", { type: "conseil" })];
     const progress = [p("a", "fr", 3), p("a", "lg", 5), p("a", "ec", 2), p("b", "fr", 4)];
     expect(mastery(lessons, entries, progress)).toEqual([
-      { lesson: lessons[0], items: 5, mastered: 3, percent: 60 },
-      { lesson: lessons[1], items: 0, mastered: 0, percent: 0 },
+      { lesson: lessons[0], items: 5, mastered: 3, learning: 1, fresh: 1, percent: 60 },
+      { lesson: lessons[1], items: 0, mastered: 0, learning: 0, fresh: 0, percent: 0 },
     ]);
   });
 });
