@@ -12,7 +12,8 @@ const MIC_SILENT = "Aucun son n'a été capté : le micro n'est sans doute pas a
 const EMPTY_ENTRY = "Écris au moins le mot, la traduction, ou ajoute un vocal.";
 
 // position : où placer une nouvelle Entrée dans la page (par défaut, à la fin).
-export function openEntry(e, lessonId, { position } = {}) {
+// onSaved(row) : appelé une fois l'Entrée enregistrée, fenêtre fermée.
+export function openEntry(e, lessonId, { position, onSaved } = {}) {
   const dlg = $("#dlgEntry"), f = $("#formEntry");
   const st = {
     type: e ? e.type : "mot", emoji: e ? e.emoji || "" : "", tc: e ? e.text_color || "" : "",
@@ -175,7 +176,7 @@ export function openEntry(e, lessonId, { position } = {}) {
       image: st.image.change.replace ? { replace: await resizeImage(st.image.change.replace) } : st.image.change,
       audio: st.audio.change,
     });
-    if (r.ok) { dlg.close(); return; }
+    if (r.ok) { dlg.close(); onSaved?.(r.value); return; }
     btn.disabled = false; btn.textContent = "Enregistrer";
     showErr(errorText(r, EMPTY_ENTRY));
     if (r.reason === "empty") $("#eWord").focus();

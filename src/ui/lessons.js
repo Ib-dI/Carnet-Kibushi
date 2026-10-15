@@ -63,14 +63,14 @@ function entryHTML(e, fresh, inLesson, num) {
   const play = e.audio_path ? `<button class="play" type="button" data-play="${esc(e.id)}" aria-label="Écouter ${esc(e.word || "le vocal")}">${PLAY_ICON}</button>` : "";
   const thumb = e.image_path ? `<img class="thumb" data-img="${esc(e.id)}" alt="Image pour ${esc(e.word || "cette entrée")}" role="button" tabindex="0">` : "";
   if (e.type === "conseil") {
-    return `<li class="entry" style="${tc}"><div class="tip">
+    return `<li class="entry" data-eid="${esc(e.id)}" style="${tc}"><div class="tip">
       <div class="tip-row"><span class="label">${e.emoji ? esc(e.emoji) : "💡"} Conseil</span>${play}</div>
       ${e.word ? `<div class="word">${esc(e.word)}</div>` : ""}
       ${e.translation ? `<div class="note">${esc(e.translation)}</div>` : ""}
       ${e.note ? `<div class="note">${esc(e.note)}</div>` : ""}
       ${thumb}${metaLine}</div></li>`;
   }
-  return `<li class="entry ${e.type === "phrase" ? "phrase" : ""}" style="${tc}">
+  return `<li class="entry ${e.type === "phrase" ? "phrase" : ""}" data-eid="${esc(e.id)}" style="${tc}">
     <div class="emo ${e.emoji ? "" : "num"}" aria-hidden="true">${e.emoji ? esc(e.emoji) : num ?? "·"}</div>
     <div class="e-main">
       <div class="word">${esc(e.word || "…")}</div>
@@ -234,7 +234,7 @@ function renderLessonPage(l) {
       <ul class="entries page-blocks">${items.length || edit ? items.map((it, i) => insert(i) + row(it, i)).join("") + insert(items.length)
         : `<li class="empty-l">Rien encore dans cette leçon. Ajoute un mot, ou passe en « ✎ Modifier la page » pour écrire librement.</li>`}</ul>
       ${edit ? `<div class="lesson-foot danger-zone" id="lDelZone2"><button class="btn small danger" type="button" data-ldel>🗑 Supprimer cette leçon</button></div>`
-        : `<div class="lesson-foot"><button class="add" type="button" data-add="${esc(l.id)}">+ Ajouter un mot, une phrase ou un conseil</button></div>`}
+        : `<button class="fab" type="button" data-add="${esc(l.id)}" aria-label="Ajouter un mot, une phrase ou un conseil" title="Ajouter un mot, une phrase ou un conseil">+</button>`}
     </article>`;
   if (!sameLesson) { page.dataset.lesson = l.id; page.dataset.at = ""; window.scrollTo(0, 0); $("h2", page).focus({ preventScroll: true }); }
   else if (focusSel) page.querySelector(focusSel)?.focus();
@@ -242,14 +242,16 @@ function renderLessonPage(l) {
   const at = currentRoute().at, target = at && page.querySelector(`[data-bid="${CSS.escape(at)}"]`);
   if (target && page.dataset.at !== at) {
     page.dataset.at = at;
-    target.scrollIntoView({ block: "center" });
-    target.classList.add("flash");
+    showAndFlash(target);
   }
 
   const rerender = () => renderLessonPage(l);
   $("[data-review]", page)?.addEventListener("click", () => openReview(l.id));
   $("[data-ledit]", page)?.addEventListener("click", () => openLesson(l));
-  $("[data-add]", page)?.addEventListener("click", () => openEntry(null, l.id));
+  // Le mot ajouté arrive en fin de page : on y descend et on le surligne.
+  $("[data-add]", page)?.addEventListener("click", () => openEntry(null, l.id, {
+    onSaved: row => { const li = page.querySelector(`[data-eid="${CSS.escape(row.id)}"]`); li && showAndFlash(li); },
+  }));
   $("[data-pedit]", page).onclick = () => { editing = edit ? null : l.id; inserting = null; rerender(); };
   // Supprimer la Leçon (mode « Modifier la page ») : confirmation sur place, qui dit ce qui part avec elle.
   $("[data-ldel]", page)?.addEventListener("click", () => {
@@ -301,6 +303,11 @@ function bindEntries(root) {
     const hit = cachedUrl(e?.image_path);
     if (hit) show(hit); else mediaUrl(e?.image_path).then(show);
   });
+}
+
+function showAndFlash(el) {
+  el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
 }
 
 function focusSelector(el, list) {

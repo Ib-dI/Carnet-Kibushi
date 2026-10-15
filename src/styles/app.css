@@ -74,7 +74,11 @@ h1 em{font-style:italic;font-weight:600;color:var(--canard)}
 .tip-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
 
 .lesson-foot{padding:14px 22px 20px}
-.add{width:100%;border:1.5px dashed color-mix(in srgb,var(--c) 55%,var(--line));color:var(--c);background:transparent;border-radius:8px;padding:11px;font-weight:700}
+/* Ajouter un mot : bouton rond toujours à portée, au-dessus des onglets sur téléphone */
+.fab{position:fixed;right:max(20px,calc((100vw - 1180px) / 2 + 24px));bottom:calc(24px + env(safe-area-inset-bottom));z-index:25;width:58px;height:58px;border-radius:50%;border:0;background:var(--c);color:var(--on-accent);font-size:2rem;font-weight:700;line-height:1;box-shadow:0 8px 22px rgb(0 0 0 / .22);cursor:pointer;transition:transform .15s ease}
+.fab:active{transform:scale(.92)}
+.fab:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.lesson.page:not(.is-editing) .page-blocks{padding-bottom:84px}
 .empty-l{color:var(--muted);font-style:italic;padding:16px 0 4px}
 
 /* État vide, bannières */
@@ -296,9 +300,9 @@ textarea.inp{min-height:76px;resize:vertical}
 /* Recherche : un bloc trouvé dans une page */
 .note-hit{display:grid;gap:6px;margin-bottom:12px;padding:12px 14px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c);color:var(--ink);text-decoration:none}
 .note-hit-where{font-size:.8rem;font-weight:700;color:var(--muted)}
-.pg-block.flash{animation:flash 1.6s ease}
+.pg-block.flash,.entry.flash{animation:flash 1.6s ease}
 @keyframes flash{0%,40%{background:color-mix(in srgb,var(--c) 18%,transparent)}100%{background:transparent}}
-@media (prefers-reduced-motion:reduce){ .pg-block.flash{animation:none;outline:2px solid var(--c)} }
+@media (prefers-reduced-motion:reduce){ .pg-block.flash,.entry.flash{animation:none;outline:2px solid var(--c)} .fab{transition:none} }
 
 /* ===== Navigation : barre du haut + onglets ===== */
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
@@ -315,6 +319,7 @@ textarea.inp{min-height:76px;resize:vertical}
 /* Sur téléphone : les onglets en bas, sous le pouce */
 @media (max-width:640px){
   .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .fab{right:16px;bottom:calc(84px + env(safe-area-inset-bottom))}
   .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:none;margin:0;border-radius:0;border-width:1px 0 0;padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:2px;box-shadow:0 -6px 20px rgb(0 0 0 / .08)}
   .tabbar a{flex-direction:column;gap:2px;padding:6px 4px;border-radius:12px;font-size:.74rem}
   .tabbar a > span:first-child{font-size:1.3rem;line-height:1}
