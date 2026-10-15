@@ -1,4 +1,5 @@
-export const COLORS = [["brique","Brique"],["canard","Canard"],["ocre","Ocre"],["prune","Prune"],["indigo","Indigo"],["olive","Olive"]];
+export const COLORS = [["brique","Brique"],["mandarine","Mandarine"],["ocre","Ocre"],["olive","Olive"],["emeraude","Émeraude"],["canard","Canard"],
+  ["lagon","Lagon"],["indigo","Indigo"],["lavande","Lavande"],["prune","Prune"],["framboise","Framboise"],["ardoise","Ardoise"]];
 export const EMOJIS = ["👋","🙏","❤️","😊","👪","👶","👵","🏠","🍲","🍚","🐟","🥭","☕","💧","🔥","🌙","☀️","🌧️","🌳","🐓","🛶","🧺","💰","🔢","❓","✅","⚠️","🎵","📌","💡"];
 export const TYPES  = [["mot","Mot"],["phrase","Phrase"],["expression","Expression"],["conseil","Conseil"]];
 export const SUGGESTIONS = [["Salutations","👋","brique"],["La famille","👪","canard"],["La cuisine","🍲","ocre"],["Les chiffres","🔢","indigo"],["Au marché","🧺","olive"],["Questions utiles","❓","prune"],

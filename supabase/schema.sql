@@ -43,7 +43,7 @@ create table public.lessons (
   title text not null,
   emoji text default '',
   color text not null default 'canard'
-    check (color in ('brique','canard','ocre','prune','indigo','olive')),
+    check (color in ('brique','canard','ocre','prune','indigo','olive','mandarine','emeraude','lagon','lavande','framboise','ardoise')),
   position int not null default 0,
   created_at timestamptz not null default now()
 );
@@ -58,7 +58,7 @@ create table public.entries (
   translation text default '',
   note text default '',
   emoji text default '',
-  text_color text default '' check (text_color in ('','brique','canard','ocre','prune','indigo','olive')),
+  text_color text default '' check (text_color in ('','brique','canard','ocre','prune','indigo','olive','mandarine','emeraude','lagon','lavande','framboise','ardoise')),
   image_path text,
   audio_path text,
   author_email text,
@@ -246,7 +246,7 @@ create table public.blocks (
   type text not null check (type in ('text', 'title', 'list', 'numbered', 'quote', 'callout', 'divider')),
   body text not null default '' check (char_length(body) <= 5000),
   title text not null default '' check (char_length(title) <= 200),
-  color text not null default '' check (color in ('', 'brique', 'canard', 'ocre', 'prune', 'indigo', 'olive')),
+  color text not null default '' check (color in ('','brique','canard','ocre','prune','indigo','olive','mandarine','emeraude','lagon','lavande','framboise','ardoise')),
   author_email text default (auth.jwt() ->> 'email'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

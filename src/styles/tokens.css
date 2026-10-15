@@ -2,6 +2,7 @@
 :root{
   --paper:#FAF6EE; --card:#FFFFFF; --ink:#1F2433; --muted:#6B6A66; --line:#E6DCCB;
   --brique:#C2452F; --canard:#1F6F6B; --ocre:#B8892F; --prune:#7A3E6B; --indigo:#34508C; --olive:#5E7A2E;
+  --mandarine:#B0560F; --emeraude:#1E7A4F; --lagon:#1D6FA3; --lavande:#6B4FB8; --framboise:#B23A68; --ardoise:#4F5B6B;
   --on-accent:#FFFFFF;
   --f-display:"Fraunces", "Iowan Old Style", Georgia, serif;
   --f-body:"Figtree", "Avenir Next", "Segoe UI", system-ui, sans-serif;
@@ -12,8 +13,10 @@
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --paper:#17181D; --card:#202229; --ink:#EEE8DC; --muted:#A7A296; --line:#363842;
   --brique:#E0674F; --canard:#3FA59D; --ocre:#D6A84C; --prune:#B86FA3; --indigo:#7E9BE0; --olive:#93B45A;
+  --mandarine:#F0954A; --emeraude:#4CC38A; --lagon:#5FB0E0; --lavande:#A48BE8; --framboise:#E77BA3; --ardoise:#9AA8BA;
   --on-accent:#14151A; color-scheme:dark }}
 :root[data-theme="dark"]{
   --paper:#17181D; --card:#202229; --ink:#EEE8DC; --muted:#A7A296; --line:#363842;
   --brique:#E0674F; --canard:#3FA59D; --ocre:#D6A84C; --prune:#B86FA3; --indigo:#7E9BE0; --olive:#93B45A;
+  --mandarine:#F0954A; --emeraude:#4CC38A; --lagon:#5FB0E0; --lavande:#A48BE8; --framboise:#E77BA3; --ardoise:#9AA8BA;
   --on-accent:#14151A; color-scheme:dark }
