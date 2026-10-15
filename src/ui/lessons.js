@@ -48,9 +48,8 @@ export function bindFilters(root) {
   $("[data-fhard]", root).onclick = () => { setFilter({ hard: !filter.hard }); sync(); };
 }
 
-// inLesson : en résultats de recherche, la Leçon où se trouve l'Entrée (lien vers sa page).
-// num : rang du mot dans la page (affiché dans la pastille quand il n'a pas d'emoji).
-function entryHTML(e, fresh, inLesson, num) {
+// Ce qui compose une Entrée affichée, en liste comme en carte.
+function entryParts(e, fresh, inLesson) {
   const tc = e.text_color ? `--tc:${colorVar(e.text_color)};` : "";
   const who = carnet.authorName(e.author_email);
   const tries = carnet.attemptsOf(e.id).length;
@@ -63,6 +62,34 @@ function entryHTML(e, fresh, inLesson, num) {
   const metaLine = `<div class="meta">${newPill}${where}${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button>${tryBtn}${comBtn}</div>`;
   const play = e.audio_path ? `<button class="play" type="button" data-play="${esc(e.id)}" aria-label="Écouter ${esc(e.word || "le vocal")}">${PLAY_ICON}</button>` : "";
   const thumb = e.image_path ? `<img class="thumb" data-img="${esc(e.id)}" alt="Image pour ${esc(e.word || "cette entrée")}" role="button" tabindex="0">` : "";
+  return { tc, newDot, metaLine, play, thumb };
+}
+
+// Petite carte de la vue Grille : le mot et sa traduction devant ; au dos, le détail et les actions.
+function cardHTML(e, fresh, num) {
+  const { tc, newDot, metaLine, play, thumb } = entryParts(e, fresh, null);
+  const back = flipped.has(e.id), label = `Retourner la carte ${esc(e.word || "")}`;
+  return `<li class="card ${back ? "flipped" : ""}" data-eid="${esc(e.id)}" style="${tc}"><div class="card-in">
+    <div class="face front" ${back ? "inert" : ""}>
+      <div class="card-top"><div class="emo ${e.emoji ? "" : "num"}" aria-hidden="true">${e.emoji ? esc(e.emoji) : num ?? "·"}</div>${play}</div>
+      ${thumb}
+      <button type="button" class="card-flip" data-flip="${esc(e.id)}" aria-label="${label}">
+        <span class="word">${esc(e.word || "…")}${newDot}</span>
+        ${e.translation ? `<span class="tr">${esc(e.translation)}</span>` : ""}</button>
+    </div>
+    <div class="face back" ${back ? "" : "inert"}>
+      <button type="button" class="card-flip" data-flip="${esc(e.id)}" aria-label="${label}">
+        <span class="word">${esc(e.word || "…")}</span>
+        ${e.pron ? `<span class="pron">[ ${esc(e.pron)} ]</span>` : ""}
+        ${e.note ? `<span class="note">${esc(e.note)}</span>` : ""}</button>
+      ${metaLine}
+    </div></div></li>`;
+}
+
+// inLesson : en résultats de recherche, la Leçon où se trouve l'Entrée (lien vers sa page).
+// num : rang du mot dans la page (affiché dans la pastille quand il n'a pas d'emoji).
+function entryHTML(e, fresh, inLesson, num) {
+  const { tc, newDot, metaLine, play, thumb } = entryParts(e, fresh, inLesson);
   if (e.type === "conseil") {
     return `<li class="entry" data-eid="${esc(e.id)}" style="${tc}"><div class="tip">
       <div class="tip-row"><span class="label">${e.emoji ? esc(e.emoji) : "💡"} Conseil</span>${play}</div>
@@ -197,13 +224,22 @@ function renderResults(list) {
 // Leçon dont la page est en mode « Modifier la page » (poignées visibles), et point d'insertion ouvert.
 let editing = null, inserting = null;
 
-// Vue « Essentiel » de la page (mot, prononciation, traduction, écoute) : par défaut, mémorisée sur l'appareil.
-const FULL_KEY = "carnet.page.full";
-let fullView = (() => { try { return localStorage.getItem(FULL_KEY) === "1"; } catch { return false; } })();
-function setFullView(v) {
-  fullView = v;
-  try { if (v) localStorage.setItem(FULL_KEY, "1"); else localStorage.removeItem(FULL_KEY); } catch {}
+// Affichage de la page, mémorisé sur l'appareil : « Essentiel » (mot, prononciation, traduction, écoute ;
+// par défaut), « Complet », ou « Grille » de petites cartes qui se retournent.
+const VIEWS = [["essential", "Essentiel"], ["full", "Complet"], ["grid", "Grille"]];
+const VIEW_KEY = "carnet.page.view";
+let pageView = (() => {
+  try {
+    const v = localStorage.getItem(VIEW_KEY) || (localStorage.getItem("carnet.page.full") === "1" ? "full" : "");
+    return VIEWS.some(([k]) => k === v) ? v : "essential";
+  } catch { return "essential"; }
+})();
+function setPageView(v) {
+  pageView = v;
+  try { localStorage.setItem(VIEW_KEY, v); localStorage.removeItem("carnet.page.full"); } catch {}
 }
+// Cartes retournées (vue Grille), gardées d'un rafraîchissement à l'autre.
+const flipped = new Set();
 
 function renderLessonPage(l) {
   const page = $("#page"), fresh = currentNews();
@@ -228,8 +264,19 @@ function renderLessonPage(l) {
     ? `<li class="pg-block ${edit ? "editing" : ""}" data-bid="${esc(it.item.id)}">${blockHTML(it.item)}${tools(it, i)}</li>`
     : entryHTML(it.item, fresh, null, it.num).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
 
-  const essential = !edit && !fullView;
-  page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""} ${essential ? "is-essential" : ""}" style="--c:${colorVar(l.color)}">
+  const view = edit ? "full" : pageView;
+  // Grille : les mots se suivent en cartes ; blocs et Conseils restent en pleine largeur entre elles.
+  const gridBody = () => {
+    let html = "", run = [];
+    const flush = () => { if (run.length) html += `<li class="pg-grid"><ul class="cards">${run.join("")}</ul></li>`; run = []; };
+    items.forEach((it, i) => {
+      if (it.kind === "entry" && it.item.type !== "conseil") run.push(cardHTML(it.item, fresh, it.num));
+      else { flush(); html += row(it, i); }
+    });
+    flush();
+    return html;
+  };
+  page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""} is-${view}" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
         <a class="back" href="${routeHash({ view: "home" })}">‹ Leçons</a>
         <div class="label">Leçon ${index + 1} · ${words} mot${words > 1 ? "s" : ""}</div>
@@ -237,12 +284,14 @@ function renderLessonPage(l) {
         <h2 tabindex="-1">${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h2>
         <div class="page-actions">
           ${!edit && cards ? `<button class="btn small page-review" type="button" data-review>${due ? `Réviser cette leçon (${due})` : "✓ À jour · réviser quand même"}</button>` : ""}
-          ${!edit && items.length ? `<button class="edit" type="button" data-view>${essential ? "◑ Tout afficher" : "◐ Essentiel"}</button>` : ""}
+          ${!edit && items.length ? `<div class="view-seg" role="group" aria-label="Affichage">${VIEWS.map(([k, label]) =>
+            `<button type="button" data-view="${k}" aria-pressed="${view === k}">${label}</button>`).join("")}</div>` : ""}
           <button class="edit" type="button" data-pedit>${edit ? "✓ Terminé" : "✎ Modifier la page"}</button>
           ${edit ? `<button class="edit" type="button" data-ledit="${esc(l.id)}">Titre, emoji, couleur…</button>` : ""}
         </div>
       </div>
-      <ul class="entries page-blocks">${items.length || edit ? items.map((it, i) => insert(i) + row(it, i)).join("") + insert(items.length)
+      <ul class="entries page-blocks">${view === "grid" && items.length ? gridBody()
+        : items.length || edit ? items.map((it, i) => insert(i) + row(it, i)).join("") + insert(items.length)
         : `<li class="empty-l">Rien encore dans cette leçon. Ajoute un mot, ou passe en « ✎ Modifier la page » pour écrire librement.</li>`}</ul>
       ${edit ? `<div class="lesson-foot danger-zone" id="lDelZone2"><button class="btn small danger" type="button" data-ldel>🗑 Supprimer cette leçon</button></div>`
         : `<button class="fab" type="button" data-add="${esc(l.id)}" aria-label="Ajouter un mot, une phrase ou un conseil" title="Ajouter un mot, une phrase ou un conseil">+</button>`}
@@ -263,7 +312,15 @@ function renderLessonPage(l) {
   $("[data-add]", page)?.addEventListener("click", () => openEntry(null, l.id, {
     onSaved: row => { const li = page.querySelector(`[data-eid="${CSS.escape(row.id)}"]`); li && showAndFlash(li); },
   }));
-  $("[data-view]", page)?.addEventListener("click", () => { setFullView(!fullView); rerender(); });
+  $$("[data-view]", page).forEach(b => b.onclick = () => { setPageView(b.dataset.view); rerender(); });
+  $$("[data-flip]", page).forEach(b => b.onclick = () => {
+    const id = b.dataset.flip;
+    if (!flipped.delete(id)) flipped.add(id);
+    const card = b.closest(".card"), back = flipped.has(id);
+    card.classList.toggle("flipped", back);
+    $(".front", card).inert = back; $(".back", card).inert = !back;
+    $(`.${back ? "back" : "front"} [data-flip]`, card).focus({ preventScroll: true });
+  });
   $("[data-pedit]", page).onclick = () => { editing = edit ? null : l.id; inserting = null; rerender(); };
   // Supprimer la Leçon (mode « Modifier la page ») : confirmation sur place, qui dit ce qui part avec elle.
   $("[data-ldel]", page)?.addEventListener("click", () => {
@@ -324,7 +381,7 @@ function showAndFlash(el) {
 
 function focusSelector(el, list) {
   if (!el || !list.contains(el)) return null;
-  for (const k of ["edit", "try", "comments", "play", "ledit", "add", "img", "view", "pedit", "insert", "up", "down", "bedit"]) {
+  for (const k of ["edit", "try", "comments", "play", "ledit", "add", "img", "view", "flip", "pedit", "insert", "up", "down", "bedit"]) {
     const v = el.dataset?.[k];
     if (v) return `[data-${k}="${CSS.escape(v)}"]`;
   }

@@ -178,7 +178,7 @@ textarea.inp{min-height:76px;resize:vertical}
 /* Commentaires et badge « nouveau » */
 /* Page de Leçon, vue « Essentiel » : le mot, sa prononciation, sa traduction et l'écoute */
 .new-dot{display:none;width:8px;height:8px;margin-left:8px;border-radius:50%;background:var(--brique);vertical-align:middle}
-.is-essential .new-dot{display:inline-block}
+.is-essential .new-dot,.is-grid .new-dot{display:inline-block}
 .is-essential .entry .meta,.is-essential .entry .thumb,.is-essential .entry .e-main .note,
 .is-essential .tip .word ~ .note,.is-essential .tip .note ~ .note{display:none}
 .new-pill{display:inline-block;margin:0 6px;padding:1px 8px;border-radius:999px;background:var(--brique);color:var(--on-accent);font-size:.72rem;font-weight:800;letter-spacing:.02em;vertical-align:1px}
@@ -269,6 +269,29 @@ textarea.inp{min-height:76px;resize:vertical}
 .lesson-head h2:focus{outline:none}
 .page-actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
 .page-actions .edit{margin-top:0}
+/* Affichage de la page : Essentiel · Complet · Grille */
+.view-seg{display:inline-flex;border:1px solid color-mix(in srgb,var(--on-accent) 45%,transparent);border-radius:999px;overflow:hidden}
+.view-seg button{border:0;background:transparent;color:var(--on-accent);padding:3px 12px;font-size:.8rem;font-weight:700}
+.view-seg button[aria-pressed="true"]{background:var(--on-accent);color:var(--c)}
+.view-seg button:focus-visible{outline:2px solid var(--on-accent);outline-offset:-3px}
+
+/* Vue Grille : petites cartes qui se retournent */
+.pg-grid{list-style:none;padding:12px 0}
+.cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.card{perspective:900px}
+.card-in{display:grid;height:100%;transition:transform .45s cubic-bezier(.3,.7,.3,1);transform-style:preserve-3d}
+.card.flipped .card-in{transform:rotateY(180deg)}
+.face{grid-area:1 / 1;display:grid;gap:8px;align-content:start;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.face.front{border-top:4px solid var(--c)}
+.face.back{transform:rotateY(180deg);background:color-mix(in srgb,var(--c) 9%,var(--card))}
+.card-top{display:flex;justify-content:space-between;align-items:center}
+.card .thumb{width:100%;height:auto;aspect-ratio:4 / 3}
+.card-flip{display:grid;gap:4px;text-align:left;border:0;background:none;padding:0;color:inherit;font:inherit;cursor:pointer}
+.card-flip:focus-visible{outline:2px solid var(--c);outline-offset:4px;border-radius:4px}
+.card .word{font-size:1.15rem}
+.card .meta{margin-top:0}
+@media (prefers-reduced-motion:reduce){ .card-in{transition:none} }
+@media (max-width:640px){ .cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .face{padding:10px} }
 .page-review{background:var(--on-accent);color:var(--c);border-color:transparent;font-weight:800}
 .results{margin-top:6px}
 @media (max-width:520px){ .tiles{grid-template-columns:1fr 1fr;gap:10px} .tile{padding:14px 12px 12px} .tile-title{font-size:1.1rem} }
@@ -305,9 +328,9 @@ textarea.inp{min-height:76px;resize:vertical}
 /* Recherche : un bloc trouvé dans une page */
 .note-hit{display:grid;gap:6px;margin-bottom:12px;padding:12px 14px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c);color:var(--ink);text-decoration:none}
 .note-hit-where{font-size:.8rem;font-weight:700;color:var(--muted)}
-.pg-block.flash,.entry.flash{animation:flash 1.6s ease}
+.pg-block.flash,.entry.flash,.card.flash .front{animation:flash 1.6s ease}
 @keyframes flash{0%,40%{background:color-mix(in srgb,var(--c) 18%,transparent)}100%{background:transparent}}
-@media (prefers-reduced-motion:reduce){ .pg-block.flash,.entry.flash{animation:none;outline:2px solid var(--c)} .fab{transition:none} }
+@media (prefers-reduced-motion:reduce){ .pg-block.flash,.entry.flash,.card.flash .front{animation:none;outline:2px solid var(--c)} .fab{transition:none} }
 
 /* ===== Navigation : barre du haut + onglets ===== */
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
