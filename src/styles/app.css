@@ -322,7 +322,7 @@ textarea.inp{min-height:76px;resize:vertical}
 .card-flip:focus-visible{outline:2px solid var(--c);outline-offset:4px;border-radius:4px}
 .card-flip{transition:transform 160ms var(--ease-out)}
 .card-flip:active{transform:scale(.97)}
-@media (prefers-reduced-motion:reduce){ .tabbar a,.card-flip{transition:none} }
+@media (prefers-reduced-motion:reduce){ .tabbar a,.card-flip,.tabbar-active{transition:none} }
 .card .word{font-size:1.15rem}
 .card-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
 .card-acts .pg-btn{width:auto;min-width:36px;padding:0 8px}
@@ -384,8 +384,12 @@ textarea.inp{min-height:76px;resize:vertical}
 .tabbar{display:flex;gap:6px;justify-content:center;margin:0 auto 22px;padding:5px;max-width:420px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
 .tabbar a{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:999px;color:var(--muted);text-decoration:none;font-weight:700;font-size:.92rem}
 .tabbar a[aria-current="page"]{background:var(--ink);color:var(--paper)}
-.tabbar a{transition:transform 160ms var(--ease-out)}
-.tabbar a:active{transform:scale(.97)}
+/* Pastille active : copie des onglets en couleurs « actif », découpée sur l'onglet courant (voir app-shell.js) */
+.tabbar{position:relative}
+.tabbar-active{position:absolute;inset:0;display:flex;flex-direction:inherit;gap:inherit;padding:inherit;justify-content:inherit;border-radius:inherit;pointer-events:none;clip-path:inset(50%);transition:clip-path 250ms var(--ease-in-out);background:var(--ink);color:var(--paper)}
+.tabbar-active.still{transition:none}
+.tabbar-active > span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:999px;font-weight:700;font-size:.92rem;position:relative}
+.tabbar.has-indicator a[aria-current="page"]{background:none;color:var(--muted)}
 .tabbar a:focus-visible{outline:2px solid var(--canard);outline-offset:2px}
 .tabbar .badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brique);color:var(--on-accent);font-size:.72rem;line-height:20px;text-align:center}
 
@@ -395,6 +399,8 @@ textarea.inp{min-height:76px;resize:vertical}
   .fab{right:16px;bottom:calc(84px + env(safe-area-inset-bottom))}
   .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:none;margin:0;border-radius:0;border-width:1px 0 0;padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:2px;box-shadow:0 -6px 20px rgb(0 0 0 / .08)}
   .tabbar a{flex-direction:column;gap:2px;padding:6px 4px;border-radius:12px;font-size:.74rem}
+  .tabbar-active > span{flex-direction:column;gap:2px;padding:6px 4px;border-radius:12px;font-size:.74rem}
+  .tabbar-active > span > span:first-child{font-size:1.3rem;line-height:1}
   .tabbar a > span:first-child{font-size:1.3rem;line-height:1}
   .tabbar .badge{position:absolute;top:2px;left:calc(50% + 8px);min-width:18px;height:18px;line-height:18px;font-size:.68rem}
   .topbar{margin-bottom:12px}
@@ -436,3 +442,18 @@ textarea.inp{min-height:76px;resize:vertical}
 ::view-transition-group(*){animation-duration:250ms;animation-timing-function:var(--ease-in-out)}
 ::view-transition-old(*),::view-transition-new(*){animation-duration:200ms;animation-timing-function:var(--ease-out)}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:150ms;animation-timing-function:ease}
+
+/* Changement d'onglet : l'écran glisse un peu dans le sens de la barre ; la barre reste en place */
+main{view-transition-name:screen}
+.tabbar{view-transition-name:tabbar}
+::view-transition-old(tabbar){display:none}
+::view-transition-new(tabbar){animation:none}
+@keyframes screen-out-next{to{opacity:0;transform:translateX(-24px)}}
+@keyframes screen-in-next{from{opacity:0;transform:translateX(24px)}}
+@keyframes screen-out-prev{to{opacity:0;transform:translateX(24px)}}
+@keyframes screen-in-prev{from{opacity:0;transform:translateX(-24px)}}
+html[data-tab-move] ::view-transition-group(screen){animation-duration:200ms}
+html[data-tab-move="next"] ::view-transition-old(screen){animation:screen-out-next 150ms var(--ease-out) both}
+html[data-tab-move="next"] ::view-transition-new(screen){animation:screen-in-next 200ms var(--ease-out) both}
+html[data-tab-move="prev"] ::view-transition-old(screen){animation:screen-out-prev 150ms var(--ease-out) both}
+html[data-tab-move="prev"] ::view-transition-new(screen){animation:screen-in-prev 200ms var(--ease-out) both}

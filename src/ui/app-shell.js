@@ -16,6 +16,7 @@ function shell(app) {
       <a href="${routeHash({ view: "home" })}" data-tab="lessons"><span aria-hidden="true">📒</span><span>Leçons</span></a>
       <a href="${routeHash({ view: "review" })}" data-tab="review"><span aria-hidden="true">🧠</span><span>Réviser</span><b class="badge" id="dueBadge" hidden></b></a>
       <a href="${routeHash({ view: "progress" })}" data-tab="progress"><span aria-hidden="true">📈</span><span>Progrès</span></a>
+      <div class="tabbar-active" aria-hidden="true"></div>
     </nav>
     <main>
       <section id="home">
@@ -45,8 +46,37 @@ function shell(app) {
   $("#filterBtn").onclick = () => { toggleFilters(); syncFilters(); };
   $("#zoomClose").onclick = () => $("#dlgZoom").close();
   $("#dlgZoom").addEventListener("click", ev => { if (ev.target === $("#dlgZoom")) $("#dlgZoom").close(); });
-  window.addEventListener("hashchange", () => render(true));
+  window.addEventListener("hashchange", changeScreen);
+  window.addEventListener("resize", () => placeIndicator(false));
   initReview();
+}
+
+// Pastille de l'onglet actif : une copie des onglets aux couleurs « actif », découpée (clip-path) sur l'onglet
+// courant ; le découpage glisse d'un onglet à l'autre, texte et fond ensemble.
+function placeIndicator(animate = true) {
+  const bar = $(".tabbar"), copy = $(".tabbar-active", bar), on = $("[data-tab][aria-current]", bar);
+  if (!copy) return;
+  copy.innerHTML = [...bar.querySelectorAll("[data-tab]")].map(a => `<span>${a.innerHTML}</span>`).join("");
+  copy.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+  if (!on) { copy.style.clipPath = "inset(50%)"; return; }
+  const w = copy.clientWidth, h = copy.clientHeight, r = getComputedStyle(on).borderRadius;
+  const top = on.offsetTop, left = on.offsetLeft, right = w - left - on.offsetWidth, bottom = h - top - on.offsetHeight;
+  copy.classList.toggle("still", !animate);
+  copy.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px round ${r})`;
+  bar.classList.add("has-indicator");
+}
+
+// Changer d'onglet : l'écran glisse légèrement dans le sens de la barre (vers la droite = onglet suivant).
+const TAB_ORDER = ["lessons", "review", "progress"];
+let shownTab = null;
+function changeScreen() {
+  const to = tabOf(currentRoute()), from = shownTab;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!from || from === to || reduce || !document.startViewTransition) { render(true); return; }
+  const root = document.documentElement;
+  root.dataset.tabMove = TAB_ORDER.indexOf(to) > TAB_ORDER.indexOf(from) ? "next" : "prev";
+  const t = document.startViewTransition(() => render(true));
+  t.finished.finally(() => delete root.dataset.tabMove);
 }
 
 let shownView = null;
@@ -60,6 +90,8 @@ function render(navigated = false) {
 
   const due = dueCount(), badge = $("#dueBadge");
   badge.hidden = !due; badge.textContent = due > 99 ? "99+" : due;
+  placeIndicator(shownTab !== null && shownTab !== tab);
+  shownTab = tab;
 
   if (shownView === "review" && route.view !== "review") leaveReview();
   if (route.view === "review") {
