@@ -318,7 +318,7 @@ function renderLessonPage(l) {
   $("[data-add]", page)?.addEventListener("click", () => openEntry(null, l.id, {
     onSaved: row => { const li = page.querySelector(`[data-eid="${CSS.escape(row.id)}"]`); li && showAndFlash(li); },
   }));
-  $$("[data-view]", page).forEach(b => b.onclick = () => { setPageView(b.dataset.view); rerender(); });
+  $$("[data-view]", page).forEach(b => b.onclick = () => switchView(page, b.dataset.view, rerender));
   $$("[data-flip]", page).forEach(b => b.onclick = () => {
     const id = b.dataset.flip;
     if (!flipped.delete(id)) flipped.add(id);
@@ -378,6 +378,20 @@ function bindEntries(root) {
     const hit = cachedUrl(e?.image_path);
     if (hit) show(hit); else mediaUrl(e?.image_path).then(show);
   });
+}
+
+// Changer d'affichage : chaque mot et chaque bloc glisse de sa place à la nouvelle (une ligne devient une carte),
+// grâce aux View Transitions du navigateur. Sans elles, ou en mouvement réduit, simple changement ou fondu.
+function switchView(page, view, rerender) {
+  if (view === pageView) return;
+  const swap = () => { setPageView(view); rerender(); };
+  if (!document.startViewTransition) { swap(); return; }
+  const glide = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const name = () => glide && $$("[data-eid], [data-bid]", page).forEach(el => {
+    el.style.viewTransitionName = el.dataset.eid ? `e-${el.dataset.eid}` : `b-${el.dataset.bid}`;
+  });
+  name();
+  document.startViewTransition(() => { swap(); name(); });
 }
 
 function showAndFlash(el) {
