@@ -36,6 +36,9 @@ h1 em{font-style:italic;font-weight:600;color:var(--canard)}
 .btn.ghost{border-color:var(--line)}
 .btn.danger{border-color:var(--brique);color:var(--brique)}
 .btn:disabled{opacity:.5;cursor:default}
+/* Appui : le bouton s'enfonce un peu */
+.btn,.chip,.play,.pg-btn{transition:transform 160ms var(--ease-out)}
+.btn:active:not(:disabled),.chip:active,.play:active,.pg-btn:active:not(:disabled){transform:scale(.97)}
 .status{font-size:.88rem;color:var(--muted)}
 
 /* Grille de leçons */
@@ -75,8 +78,8 @@ h1 em{font-style:italic;font-weight:600;color:var(--canard)}
 
 .lesson-foot{padding:14px 22px 20px}
 /* Ajouter un mot : bouton rond toujours à portée, au-dessus des onglets sur téléphone */
-.fab{position:fixed;right:max(20px,calc((100vw - 1180px) / 2 + 24px));bottom:calc(24px + env(safe-area-inset-bottom));z-index:25;width:58px;height:58px;border-radius:50%;border:0;background:var(--c);color:var(--on-accent);font-size:2rem;font-weight:700;line-height:1;box-shadow:0 8px 22px rgb(0 0 0 / .22);cursor:pointer;transition:transform .15s ease}
-.fab:active{transform:scale(.92)}
+.fab{position:fixed;right:max(20px,calc((100vw - 1180px) / 2 + 24px));bottom:calc(24px + env(safe-area-inset-bottom));z-index:25;width:58px;height:58px;border-radius:50%;border:0;background:var(--c);color:var(--on-accent);font-size:2rem;font-weight:700;line-height:1;box-shadow:0 8px 22px rgb(0 0 0 / .22);cursor:pointer;transition:transform 160ms var(--ease-out)}
+.fab:active{transform:scale(.95)}
 .fab:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 .lesson.page:not(.is-editing) .page-blocks{padding-bottom:84px}
 .empty-l{color:var(--muted);font-style:italic;padding:16px 0 4px}
@@ -92,6 +95,11 @@ h1 em{font-style:italic;font-weight:600;color:var(--canard)}
 /* Fenêtres (élément <dialog>) */
 dialog{border:0;padding:0;border-radius:14px;background:var(--card);color:var(--ink);width:min(640px,calc(100% - 24px));max-height:calc(100% - 24px)}
 dialog::backdrop{background:rgba(20,20,26,.5)}
+/* Entrée des fenêtres : léger zoom et fondu (ordinateur), feuille qui monte du bas (téléphone) */
+dialog[open]{transition:opacity 200ms var(--ease-out),transform 200ms var(--ease-out)}
+@starting-style{ dialog[open]{opacity:0;transform:scale(.97)} }
+dialog[open]::backdrop{transition:background-color 200ms var(--ease-out)}
+@starting-style{ dialog[open]::backdrop{background-color:transparent} }
 .dlg{display:grid;gap:16px;padding:22px 24px 24px}
 .dlg h3{font-family:var(--f-display);font-weight:650;font-size:1.5rem;margin:0}
 .field{display:grid;gap:6px;min-width:0}
@@ -147,12 +155,10 @@ textarea.inp{min-height:76px;resize:vertical}
   .thumb{width:58px;height:58px}
   .dlg{padding:18px 16px 20px}
   dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:14px 14px 0 0}  /* fenêtre en feuille du bas */
+  dialog[open]{transition:transform 300ms var(--ease-drawer)}
+  @starting-style{ dialog[open]{opacity:1;transform:translateY(100%)} }
 }
-@media (prefers-reduced-motion:no-preference){
-  .lesson{animation:up .35s ease both}
-  @keyframes up{from{transform:translateY(6px)}to{transform:none}}
-}
-@media (prefers-reduced-motion:reduce){ .rec-btn.on{animation:none} }
+@media (prefers-reduced-motion:reduce){ .rec-btn.on{animation:none} .btn,.chip,.play,.pg-btn{transition:none} }
 
 /* Compléments */
 .lang-edit{align-self:start;justify-self:start}
@@ -254,7 +260,8 @@ textarea.inp{min-height:76px;resize:vertical}
 /* Sommaire : une tuile par Leçon */
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:14px}
 .tile{position:relative;display:grid;gap:4px;padding:18px 18px 16px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);border-top:6px solid var(--c);color:var(--ink);text-decoration:none;transition:transform .15s ease,box-shadow .15s ease}
-.tile:hover,.tile:focus-visible{transform:translateY(-2px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
+.tile:focus-visible{transform:translateY(-2px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
+@media (hover:hover) and (pointer:fine){ .tile:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgb(0 0 0 / .12)} }
 .tile-emo{font-size:2rem;line-height:1}
 .tile-title{font-family:var(--f-display);font-weight:650;font-size:1.3rem;line-height:1.15}
 .tile-meta{font-size:.85rem;color:var(--muted)}
@@ -279,7 +286,7 @@ textarea.inp{min-height:76px;resize:vertical}
 .pg-grid{list-style:none;padding:12px 0}
 .cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
 .card{perspective:900px}
-.card-in{position:relative;height:100%;transition:transform .45s cubic-bezier(.3,.7,.3,1);transform-style:preserve-3d}
+.card-in{position:relative;height:100%;transition:transform 350ms var(--ease-in-out);transform-style:preserve-3d}
 .card.flipped .card-in{transform:rotateY(180deg)}
 .face{display:grid;gap:8px;align-content:start;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .face.front{height:100%;min-height:150px;box-shadow:inset 0 4px 0 var(--c)}
@@ -297,7 +304,6 @@ textarea.inp{min-height:76px;resize:vertical}
 .page-review{background:var(--on-accent);color:var(--c);border-color:transparent;font-weight:800}
 .results{margin-top:6px}
 @media (max-width:520px){ .tiles{grid-template-columns:1fr 1fr;gap:10px} .tile{padding:14px 12px 12px} .tile-title{font-size:1.1rem} }
-.lesson.page{animation:none}
 @media (max-width:520px){ .tools .btn{white-space:nowrap;padding-inline:14px} }
 
 /* Page de Leçon : blocs de texte libre */
@@ -382,3 +388,9 @@ textarea.inp{min-height:76px;resize:vertical}
 .lmenu-actions .menu-item{font-size:1rem;padding:12px}
 .danger-text{color:var(--brique)}
 .lmenu-actions .confirm{margin:0 0 8px;font-weight:600}
+
+/* Mouvement réduit : les fenêtres entrent par un simple fondu */
+@media (prefers-reduced-motion:reduce){
+  dialog[open]{transition:opacity 150ms ease}
+  @starting-style{ dialog[open]{opacity:0;transform:none} }
+}

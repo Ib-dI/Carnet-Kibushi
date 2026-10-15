@@ -59,6 +59,21 @@ function cardHTML(st) {
     <div class="card-face">${hint && e.emoji ? `<div style="font-size:2rem" aria-hidden="true">${esc(e.emoji)}</div>` : ""}${hint && e.image_path ? `<img id="rImg" alt="">` : ""}${flipped ? back : front}${play}${tryBtn}${e.note && flipped ? `<div class="note">${esc(e.note)}</div>` : ""}</div>`;
 }
 
+// Mouvement de la carte après un clic ou un toucher (jamais au clavier) : elle se retourne, ou la suivante arrive.
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+function animateCard(kind) {
+  const face = $("#rev .card-face");
+  if (!face || !face.animate) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    face.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 150, easing: "ease" });
+    return;
+  }
+  const frames = kind === "flip"
+    ? [{ transform: "perspective(900px) rotateY(-90deg)", opacity: 0.4 }, { transform: "none", opacity: 1 }]
+    : [{ transform: "translateX(16px)", opacity: 0 }, { transform: "none", opacity: 1 }];
+  face.animate(frames, { duration: kind === "flip" ? 260 : 200, easing: EASE_OUT });
+}
+
 function draw() {
   const r = $("#rev"), st = screen.state;
   const warn = st.saveFailed ? `<p class="err" role="alert">Certaines réponses n'ont pas été enregistrées. Vérifie ta connexion.</p>` : "";
@@ -94,10 +109,11 @@ function draw() {
   }
 
   const act = fn => () => { fn(); draw(); };
-  $("#rFlip")?.addEventListener("click", act(() => screen.flip()));
-  $("#rYes")?.addEventListener("click", act(() => screen.answer("knew")));
-  $("#rNo")?.addEventListener("click", act(() => screen.answer("again")));
-  $("#rEasy")?.addEventListener("click", act(() => screen.answer("easy")));
+  const card = (fn, kind) => () => { fn(); draw(); if (kind === "flip" || (screen.state.card && !screen.state.done)) animateCard(kind); };
+  $("#rFlip")?.addEventListener("click", card(() => screen.flip(), "flip"));
+  $("#rYes")?.addEventListener("click", card(() => screen.answer("knew"), "next"));
+  $("#rNo")?.addEventListener("click", card(() => screen.answer("again"), "next"));
+  $("#rEasy")?.addEventListener("click", card(() => screen.answer("easy"), "next"));
   $("#rAgain")?.addEventListener("click", act(() => screen.restart()));
   $$("[data-mode]", r).forEach(b => b.onclick = act(() => screen.setMode(b.dataset.mode)));
   $$("[data-size]", r).forEach(b => b.onclick = act(() => screen.setSize(+b.dataset.size)));
