@@ -67,8 +67,10 @@ function entryParts(e, fresh, inLesson) {
 
 // Petite carte de la vue Grille : le mot et sa traduction devant ; au dos, le détail et les actions.
 function cardHTML(e, fresh, num) {
-  const { tc, newDot, metaLine, play, thumb } = entryParts(e, fresh, null);
+  const { tc, newDot, play, thumb } = entryParts(e, fresh, null);
   const back = flipped.has(e.id), label = `Retourner la carte ${esc(e.word || "")}`;
+  const tries = carnet.attemptsOf(e.id).length, coms = carnet.commentsOf(e.id).length;
+  const count = n => n ? ` ${n}` : "";
   return `<li class="card ${back ? "flipped" : ""}" data-eid="${esc(e.id)}" style="${tc}"><div class="card-in">
     <div class="face front" ${back ? "inert" : ""}>
       <div class="card-top"><div class="emo ${e.emoji ? "" : "num"}" aria-hidden="true">${e.emoji ? esc(e.emoji) : num ?? "·"}</div>${play}</div>
@@ -82,7 +84,11 @@ function cardHTML(e, fresh, num) {
         <span class="word">${esc(e.word || "…")}</span>
         ${e.pron ? `<span class="pron">[ ${esc(e.pron)} ]</span>` : ""}
         ${e.note ? `<span class="note">${esc(e.note)}</span>` : ""}</button>
-      ${metaLine}
+      <div class="card-acts">
+        <button type="button" class="pg-btn" data-edit="${esc(e.id)}" aria-label="Modifier" title="Modifier">✎</button>
+        <button type="button" class="pg-btn" data-try="${esc(e.id)}" aria-label="Essais${count(tries)}" title="Essais">🎙${count(tries)}</button>
+        <button type="button" class="pg-btn" data-comments="${esc(e.id)}" aria-label="Commentaires${count(coms)}" title="Commentaires">💬${count(coms)}</button>
+      </div>
     </div></div></li>`;
 }
 
