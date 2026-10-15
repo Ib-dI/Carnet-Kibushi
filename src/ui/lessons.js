@@ -58,6 +58,7 @@ function entryHTML(e, fresh, inLesson, num) {
   const coms = carnet.commentsOf(e.id).length, newComs = fresh.comments.get(e.id) || 0;
   const comBtn = ` · <button class="mini" data-comments="${esc(e.id)}" type="button">💬 ${coms ? `Commentaires (${coms})` : "Commenter"}</button>${newComs ? `<span class="new-pill">${newComs} nouveau${newComs > 1 ? "x" : ""}</span>` : ""}`;
   const newPill = fresh.entries.has(e.id) ? `<span class="new-pill">nouveau</span>` : "";
+  const newDot = newPill || newComs ? `<span class="new-dot" title="Du nouveau"></span>` : "";
   const where = inLesson ? `<a class="mini" href="${routeHash({ view: "lesson", id: inLesson.id })}">dans ${esc(lessonLabel(inLesson))}</a> · ` : "";
   const metaLine = `<div class="meta">${newPill}${where}${who ? `Ajouté par ${esc(who)} · ` : ""}${fmtDate(e.created_at)} · <button class="mini" data-edit="${esc(e.id)}" type="button">Modifier</button>${tryBtn}${comBtn}</div>`;
   const play = e.audio_path ? `<button class="play" type="button" data-play="${esc(e.id)}" aria-label="Écouter ${esc(e.word || "le vocal")}">${PLAY_ICON}</button>` : "";
@@ -65,7 +66,7 @@ function entryHTML(e, fresh, inLesson, num) {
   if (e.type === "conseil") {
     return `<li class="entry" data-eid="${esc(e.id)}" style="${tc}"><div class="tip">
       <div class="tip-row"><span class="label">${e.emoji ? esc(e.emoji) : "💡"} Conseil</span>${play}</div>
-      ${e.word ? `<div class="word">${esc(e.word)}</div>` : ""}
+      ${e.word ? `<div class="word">${esc(e.word)}${newDot}</div>` : ""}
       ${e.translation ? `<div class="note">${esc(e.translation)}</div>` : ""}
       ${e.note ? `<div class="note">${esc(e.note)}</div>` : ""}
       ${thumb}${metaLine}</div></li>`;
@@ -73,7 +74,7 @@ function entryHTML(e, fresh, inLesson, num) {
   return `<li class="entry ${e.type === "phrase" ? "phrase" : ""}" data-eid="${esc(e.id)}" style="${tc}">
     <div class="emo ${e.emoji ? "" : "num"}" aria-hidden="true">${e.emoji ? esc(e.emoji) : num ?? "·"}</div>
     <div class="e-main">
-      <div class="word">${esc(e.word || "…")}</div>
+      <div class="word">${esc(e.word || "…")}${newDot}</div>
       ${e.pron ? `<div class="pron">[ ${esc(e.pron)} ]</div>` : ""}
       ${e.translation ? `<div class="tr">${esc(e.translation)}</div>` : ""}
       ${e.note ? `<div class="note">${esc(e.note)}</div>` : ""}
@@ -196,6 +197,14 @@ function renderResults(list) {
 // Leçon dont la page est en mode « Modifier la page » (poignées visibles), et point d'insertion ouvert.
 let editing = null, inserting = null;
 
+// Vue « Essentiel » de la page (mot, prononciation, traduction, écoute) : par défaut, mémorisée sur l'appareil.
+const FULL_KEY = "carnet.page.full";
+let fullView = (() => { try { return localStorage.getItem(FULL_KEY) === "1"; } catch { return false; } })();
+function setFullView(v) {
+  fullView = v;
+  try { if (v) localStorage.setItem(FULL_KEY, "1"); else localStorage.removeItem(FULL_KEY); } catch {}
+}
+
 function renderLessonPage(l) {
   const page = $("#page"), fresh = currentNews();
   if (editing !== l.id) { editing = null; inserting = null; }
@@ -219,7 +228,8 @@ function renderLessonPage(l) {
     ? `<li class="pg-block ${edit ? "editing" : ""}" data-bid="${esc(it.item.id)}">${blockHTML(it.item)}${tools(it, i)}</li>`
     : entryHTML(it.item, fresh, null, it.num).replace(/<\/li>\s*$/, `${tools(it, i)}</li>`);
 
-  page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""}" style="--c:${colorVar(l.color)}">
+  const essential = !edit && !fullView;
+  page.innerHTML = `<article class="lesson page ${edit ? "is-editing" : ""} ${essential ? "is-essential" : ""}" style="--c:${colorVar(l.color)}">
       <div class="lesson-head">
         <a class="back" href="${routeHash({ view: "home" })}">‹ Leçons</a>
         <div class="label">Leçon ${index + 1} · ${words} mot${words > 1 ? "s" : ""}</div>
@@ -227,6 +237,7 @@ function renderLessonPage(l) {
         <h2 tabindex="-1">${l.emoji ? esc(l.emoji) + " " : ""}${esc(l.title)}</h2>
         <div class="page-actions">
           ${!edit && cards ? `<button class="btn small page-review" type="button" data-review>${due ? `Réviser cette leçon (${due})` : "✓ À jour · réviser quand même"}</button>` : ""}
+          ${!edit && items.length ? `<button class="edit" type="button" data-view>${essential ? "◑ Tout afficher" : "◐ Essentiel"}</button>` : ""}
           <button class="edit" type="button" data-pedit>${edit ? "✓ Terminé" : "✎ Modifier la page"}</button>
           ${edit ? `<button class="edit" type="button" data-ledit="${esc(l.id)}">Titre, emoji, couleur…</button>` : ""}
         </div>
@@ -252,6 +263,7 @@ function renderLessonPage(l) {
   $("[data-add]", page)?.addEventListener("click", () => openEntry(null, l.id, {
     onSaved: row => { const li = page.querySelector(`[data-eid="${CSS.escape(row.id)}"]`); li && showAndFlash(li); },
   }));
+  $("[data-view]", page)?.addEventListener("click", () => { setFullView(!fullView); rerender(); });
   $("[data-pedit]", page).onclick = () => { editing = edit ? null : l.id; inserting = null; rerender(); };
   // Supprimer la Leçon (mode « Modifier la page ») : confirmation sur place, qui dit ce qui part avec elle.
   $("[data-ldel]", page)?.addEventListener("click", () => {
@@ -312,7 +324,7 @@ function showAndFlash(el) {
 
 function focusSelector(el, list) {
   if (!el || !list.contains(el)) return null;
-  for (const k of ["edit", "try", "comments", "play", "ledit", "add", "img", "pedit", "insert", "up", "down", "bedit"]) {
+  for (const k of ["edit", "try", "comments", "play", "ledit", "add", "img", "view", "pedit", "insert", "up", "down", "bedit"]) {
     const v = el.dataset?.[k];
     if (v) return `[data-${k}="${CSS.escape(v)}"]`;
   }

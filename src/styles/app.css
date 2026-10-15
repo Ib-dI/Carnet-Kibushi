@@ -176,6 +176,11 @@ textarea.inp{min-height:76px;resize:vertical}
 .try-row span{font-weight:600}
 
 /* Commentaires et badge « nouveau » */
+/* Page de Leçon, vue « Essentiel » : le mot, sa prononciation, sa traduction et l'écoute */
+.new-dot{display:none;width:8px;height:8px;margin-left:8px;border-radius:50%;background:var(--brique);vertical-align:middle}
+.is-essential .new-dot{display:inline-block}
+.is-essential .entry .meta,.is-essential .entry .thumb,.is-essential .entry .e-main .note,
+.is-essential .tip .word ~ .note,.is-essential .tip .note ~ .note{display:none}
 .new-pill{display:inline-block;margin:0 6px;padding:1px 8px;border-radius:999px;background:var(--brique);color:var(--on-accent);font-size:.72rem;font-weight:800;letter-spacing:.02em;vertical-align:1px}
 .com-list{display:grid;gap:12px;max-height:45vh;overflow:auto}
 .com{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
