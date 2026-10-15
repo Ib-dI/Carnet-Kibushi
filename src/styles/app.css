@@ -457,3 +457,15 @@ html[data-tab-move="next"] ::view-transition-old(screen){animation:screen-out-ne
 html[data-tab-move="next"] ::view-transition-new(screen){animation:screen-in-next 200ms var(--ease-out) both}
 html[data-tab-move="prev"] ::view-transition-old(screen){animation:screen-out-prev 150ms var(--ease-out) both}
 html[data-tab-move="prev"] ::view-transition-new(screen){animation:screen-in-prev 200ms var(--ease-out) both}
+
+/* Ouvrir / fermer une Leçon : la tuile devient l'en-tête de la page (et inversement), le contenu suit en fondu */
+::view-transition-group(lesson-hero){animation-duration:300ms;animation-timing-function:var(--ease-in-out);overflow:clip;border-radius:var(--r)}
+::view-transition-old(lesson-hero),::view-transition-new(lesson-hero){animation-duration:300ms;animation-timing-function:var(--ease-in-out);height:100%;object-fit:cover;object-position:top left}
+::view-transition-old(lesson-hero){animation-duration:150ms;animation-timing-function:var(--ease-out)}  /* l'ancienne forme, étirée, s'efface vite */
+@keyframes screen-in-up{from{opacity:0;transform:translateY(16px)}}
+@keyframes screen-fade-out{to{opacity:0}}
+html[data-lesson-move] ::view-transition-group(screen){animation-duration:300ms}
+html[data-lesson-move] ::view-transition-old(screen){animation:screen-fade-out 150ms var(--ease-out) both}
+html[data-lesson-move="open"] ::view-transition-new(screen){animation:screen-in-up 300ms var(--ease-out) both}
+@keyframes screen-fade-in{from{opacity:0}}
+html[data-lesson-move="close"] ::view-transition-new(screen){animation:screen-fade-in 200ms var(--ease-out) both}

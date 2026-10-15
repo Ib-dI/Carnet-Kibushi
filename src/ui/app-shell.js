@@ -69,14 +69,31 @@ function placeIndicator(animate = true) {
 // Changer d'onglet : l'écran glisse légèrement dans le sens de la barre (vers la droite = onglet suivant).
 const TAB_ORDER = ["lessons", "review", "progress"];
 let shownTab = null;
+// Ouvrir ou fermer une Leçon : sa tuile s'agrandit en en-tête de page, et l'en-tête redevient tuile au retour.
 function changeScreen() {
-  const to = tabOf(currentRoute()), from = shownTab;
+  const route = currentRoute(), to = tabOf(route), from = shownTab;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!from || from === to || reduce || !document.startViewTransition) { render(true); return; }
+  if (!from || reduce || !document.startViewTransition) { render(true); return; }
   const root = document.documentElement;
-  root.dataset.tabMove = TAB_ORDER.indexOf(to) > TAB_ORDER.indexOf(from) ? "next" : "prev";
-  const t = document.startViewTransition(() => render(true));
-  t.finished.finally(() => delete root.dataset.tabMove);
+  if (from !== to) {
+    root.dataset.tabMove = TAB_ORDER.indexOf(to) > TAB_ORDER.indexOf(from) ? "next" : "prev";
+    document.startViewTransition(() => render(true)).finished.finally(() => delete root.dataset.tabMove);
+    return;
+  }
+  const opening = shownView === "home" && route.view === "lesson", closing = shownView === "lesson" && route.view === "home";
+  if (!opening && !closing) { render(true); return; }
+  const id = opening ? route.id : $("#page").dataset.lesson;
+  const tile = () => document.querySelector(`#home .tile[data-lesson="${CSS.escape(id || "")}"]`);
+  const head = () => $("#page .lesson-head");
+  const hero = el => { if (el) el.style.viewTransitionName = "lesson-hero"; return el; };
+  const before = hero(opening ? tile() : head());
+  if (!before) { render(true); return; }
+  root.dataset.lessonMove = opening ? "open" : "close";
+  const t = document.startViewTransition(() => { before.style.viewTransitionName = ""; render(true); hero(opening ? head() : tile()); });
+  t.finished.finally(() => {
+    delete root.dataset.lessonMove;
+    [tile(), head()].forEach(el => { if (el) el.style.viewTransitionName = ""; });
+  });
 }
 
 let shownView = null;
