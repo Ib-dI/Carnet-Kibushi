@@ -283,16 +283,29 @@ textarea.inp{min-height:76px;resize:vertical}
 
 /* Sommaire : une tuile par Leçon */
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:14px}
-.tile{position:relative;display:grid;gap:4px;padding:18px 18px 16px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);border-top:6px solid var(--c);color:var(--ink);text-decoration:none;transition:transform .15s ease,box-shadow .15s ease}
-.tile:focus-visible{transform:translateY(-2px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
-@media (hover:hover) and (pointer:fine){ .tile:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgb(0 0 0 / .12)} }
+.tile{position:relative;isolation:isolate;display:grid;gap:4px;padding:18px 18px 16px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);border-top:6px solid var(--c);color:var(--ink);text-decoration:none;transition:transform 200ms var(--ease-out),box-shadow 200ms ease,border-color 200ms ease}
+/* Survol d'une Leçon : la tuile se soulève dans sa couleur, un voile coloré descend, l'emoji s'anime, une flèche invite à ouvrir */
+.tile:not(.tile-add)::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:linear-gradient(to bottom,color-mix(in srgb,var(--c) 16%,transparent),transparent 75%);opacity:0;transition:opacity 200ms ease}
+.tile:not(.tile-add)::after{content:"→";position:absolute;right:16px;bottom:12px;font-weight:800;font-size:1.1rem;color:var(--c);opacity:0;transform:translateX(-6px);transition:opacity 200ms ease,transform 200ms var(--ease-out)}
+.tile-emo{justify-self:start;transform-origin:left bottom;transition:transform 250ms var(--ease-out)}
+.tile:not(.tile-add):focus-visible{transform:translateY(-4px);border-color:color-mix(in srgb,var(--c) 45%,var(--line));border-top-color:var(--c);box-shadow:0 14px 30px -10px color-mix(in srgb,var(--c) 55%,transparent)}
+.tile:not(.tile-add):focus-visible::before,.tile:not(.tile-add):focus-visible::after{opacity:1;transform:none}
+.tile:not(.tile-add):focus-visible .tile-emo{transform:scale(1.15) rotate(-8deg)}
+@media (hover:hover) and (pointer:fine){
+  .tile:not(.tile-add):hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--c) 45%,var(--line));border-top-color:var(--c);box-shadow:0 14px 30px -10px color-mix(in srgb,var(--c) 55%,transparent)}
+  .tile:not(.tile-add):hover::before,.tile:not(.tile-add):hover::after{opacity:1;transform:none}
+  .tile:not(.tile-add):hover .tile-emo{transform:scale(1.15) rotate(-8deg)}
+}
 .tile-emo{font-size:2rem;line-height:1}
 .tile-title{font-family:var(--f-display);font-weight:650;font-size:1.3rem;line-height:1.15}
-.tile-meta{font-size:.85rem;color:var(--muted)}
+.tile-meta{font-size:.85rem;color:var(--muted);padding-right:22px}
 .tile-meta b{color:var(--c)}
 .tile-meta .ok{color:var(--canard);font-weight:700}
 .tile-new{position:absolute;top:10px;right:6px}
-@media (prefers-reduced-motion:reduce){ .tile{transition:none} .tile:hover{transform:none} }
+@media (prefers-reduced-motion:reduce){
+  .tile,.tile-emo,.tile::after{transition:none}
+  .tile:hover,.tile:focus-visible,.tile:hover .tile-emo,.tile:focus-visible .tile-emo{transform:none}
+}
 .tile:active{transform:scale(.98);transition:transform 160ms var(--ease-out)}
 
 /* Page d'une Leçon */
