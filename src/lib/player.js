@@ -5,14 +5,15 @@ const player = new Audio();
 let playingBtn = null;
 let playingKey = null;
 
-const reset = () => { playingBtn?.classList.remove("on"); playingBtn = null; playingKey = null; };
+const mark = (btn, on) => { btn?.classList.toggle("on", on); btn?.setAttribute("aria-pressed", on); };
+const reset = () => { mark(playingBtn, false); playingBtn = null; playingKey = null; };
 player.addEventListener("ended", reset);
 
 export async function playPath(path, btn, key = path) {
   const again = playingKey === key;
   player.pause(); reset();
   if (again) return; // recliquer sur ▶ met en pause
-  btn.classList.add("on"); playingBtn = btn; playingKey = key;
+  mark(btn, true); playingBtn = btn; playingKey = key;
   const u = await mediaUrl(path);
   if (playingKey !== key) return;
   if (!u) { reset(); return; }
@@ -24,7 +25,7 @@ export async function playPath(path, btn, key = path) {
 export function rebindPlaying(root) {
   if (!playingKey) return;
   const btn = root.querySelector(`[data-play="${CSS.escape(playingKey)}"]`);
-  if (btn) { btn.classList.add("on"); playingBtn = btn; }
+  if (btn) { mark(btn, true); playingBtn = btn; }
 }
 
 export const stopPlayback = () => { player.pause(); reset(); };

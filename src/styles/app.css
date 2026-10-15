@@ -70,6 +70,8 @@ h1 em{font-style:italic;font-weight:600;color:var(--canard)}
 .play{width:40px;height:40px;border-radius:50%;border:0;background:var(--c);color:var(--on-accent);display:grid;place-items:center}
 .play svg{width:16px;height:16px;fill:currentColor}
 .play.on{outline:3px solid color-mix(in srgb,var(--c) 35%,transparent)}
+.play .i-pause,.play.on .i-play{display:none}
+.play.on .i-pause{display:block}
 .mini{border:0;background:none;color:var(--muted);font-size:.8rem;font-weight:700;padding:2px 0;text-decoration:underline;text-underline-offset:3px}
 
 /* Entrée de type « conseil » */

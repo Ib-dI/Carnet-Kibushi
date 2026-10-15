@@ -5,7 +5,8 @@ export const SUGGESTIONS = [["Salutations","👋","brique"],["La famille","👪"
   ["La politesse","🙏","canard"],["La maison","🏠","prune"],["Le temps qu'il fait","🌧️","indigo"],["Les animaux","🐓","olive"],["Les sentiments","😊","brique"],["Le jour et la nuit","🌙","ocre"]];
 export const colorVar = k => COLORS.some(c => c[0] === k) ? `var(--${k})` : "var(--canard)";
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-export const PLAY_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>';
+// ▶ au repos, ⏸ pendant la lecture (classe « on » posée par lib/player.js).
+export const PLAY_ICON = '<svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg><svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>';
 
 export const $ = (s, root = document) => root.querySelector(s);
 export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
