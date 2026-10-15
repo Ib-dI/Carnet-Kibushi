@@ -3,6 +3,8 @@ html,body{margin:0}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
 img{max-width:100%}
 [hidden]{display:none!important}
+/* Pas de rectangle gris au toucher : le retour vient de l'enfoncement (et du focus clavier) */
+a,button,summary,[role="button"],label{-webkit-tap-highlight-color:transparent}
 .wrap{max-width:1180px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:32px 80px}
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -142,6 +144,7 @@ textarea.inp{min-height:76px;resize:vertical}
 .card-face img{max-height:150px;border-radius:8px}
 .rev-bar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem}
+.rev-streak{font-weight:800;color:var(--brique)}
 .zoom{padding:10px;display:grid;gap:10px;justify-items:end}
 .zoom img{max-height:75vh;border-radius:8px;justify-self:center}
 
@@ -269,6 +272,7 @@ textarea.inp{min-height:76px;resize:vertical}
 .tile-meta .ok{color:var(--canard);font-weight:700}
 .tile-new{position:absolute;top:10px;right:6px}
 @media (prefers-reduced-motion:reduce){ .tile{transition:none} .tile:hover{transform:none} }
+.tile:active{transform:scale(.98);transition:transform 160ms var(--ease-out)}
 
 /* Page d'une Leçon */
 .lesson.page{max-width:760px;margin:0 auto}
@@ -286,7 +290,7 @@ textarea.inp{min-height:76px;resize:vertical}
 .pg-grid{list-style:none;padding:12px 0}
 .cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
 .card{perspective:900px}
-.card-in{position:relative;height:100%;transition:transform 350ms var(--ease-in-out);transform-style:preserve-3d}
+.card-in{position:relative;height:100%;transition:transform 300ms var(--ease-in-out);transform-style:preserve-3d}
 .card.flipped .card-in{transform:rotateY(180deg)}
 .face{display:grid;gap:8px;align-content:start;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .face.front{height:100%;min-height:150px;box-shadow:inset 0 4px 0 var(--c)}
@@ -295,11 +299,21 @@ textarea.inp{min-height:76px;resize:vertical}
 .card .thumb{width:100%;height:auto;aspect-ratio:4 / 3}
 .card-flip{display:grid;gap:4px;text-align:left;border:0;background:none;padding:0;color:inherit;font:inherit;cursor:pointer}
 .card-flip:focus-visible{outline:2px solid var(--c);outline-offset:4px;border-radius:4px}
+.card-flip{transition:transform 160ms var(--ease-out)}
+.card-flip:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){ .tabbar a,.card-flip{transition:none} }
 .card .word{font-size:1.15rem}
 .card-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
 .card-acts .pg-btn{width:auto;min-width:36px;padding:0 8px}
 .face.back{grid-template-rows:1fr auto}
-@media (prefers-reduced-motion:reduce){ .card-in{transition:none} }
+@media (prefers-reduced-motion:reduce){
+  .card-in{transition:none}
+  .card.flipped .card-in{transform:none}
+  .face{transition:opacity 150ms ease}
+  .face.back{transform:none;opacity:0}
+  .card.flipped .face.front{opacity:0}
+  .card.flipped .face.back{opacity:1}
+}
 @media (max-width:640px){ .cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .face{padding:10px} }
 .page-review{background:var(--on-accent);color:var(--c);border-color:transparent;font-weight:800}
 .results{margin-top:6px}
@@ -349,6 +363,8 @@ textarea.inp{min-height:76px;resize:vertical}
 .tabbar{display:flex;gap:6px;justify-content:center;margin:0 auto 22px;padding:5px;max-width:420px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
 .tabbar a{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:999px;color:var(--muted);text-decoration:none;font-weight:700;font-size:.92rem}
 .tabbar a[aria-current="page"]{background:var(--ink);color:var(--paper)}
+.tabbar a{transition:transform 160ms var(--ease-out)}
+.tabbar a:active{transform:scale(.97)}
 .tabbar a:focus-visible{outline:2px solid var(--canard);outline-offset:2px}
 .tabbar .badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brique);color:var(--on-accent);font-size:.72rem;line-height:20px;text-align:center}
 

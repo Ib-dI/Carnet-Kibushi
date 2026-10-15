@@ -5,6 +5,7 @@ import { playPath, stopPlayback } from "../lib/player.js";
 import { carnet } from "./carnet-ref.js";
 import { createRevisionScreen } from "../revision/screen.js";
 import { dailyItems, localToday } from "../revision/schedule.js";
+import { streak } from "../revision/stats.js";
 import { $, $$, esc, colorVar, PLAY_ICON, lessonLabel } from "./dom.js";
 import { openAttempt } from "./attempt-dialog.js";
 import { go, routeHash } from "./route.js";
@@ -74,6 +75,19 @@ function animateCard(kind) {
   face.animate(frames, { duration: kind === "flip" ? 260 : 200, easing: EASE_OUT });
 }
 
+// Fin de Révision : le score apparaît, puis la série (une seule fois par écran de fin).
+let doneShown = false;
+function celebrate() {
+  const face = $("#rev .card-face"), line = $("#rev .rev-streak");
+  if (!face?.animate) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    face.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "ease" });
+    return;
+  }
+  face.animate([{ transform: "scale(0.9)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 300, easing: EASE_OUT });
+  line?.animate([{ transform: "translateY(6px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 300, delay: 120, easing: EASE_OUT, fill: "backwards" });
+}
+
 function draw() {
   const r = $("#rev"), st = screen.state;
   const warn = st.saveFailed ? `<p class="err" role="alert">Certaines réponses n'ont pas été enregistrées. Vérifie ta connexion.</p>` : "";
@@ -86,6 +100,7 @@ function draw() {
   stopPlayback();
 
   if (st.empty) {
+    doneShown = false;
     const nextLine = st.next ? `Prochaines cartes : ${esc(when(st.next.day))} (${st.next.count})` : "Ajoute des mots avec leur traduction pour en réviser de nouveaux.";
     const empty = st.mode === "jour"
       ? `<div class="card-face"><div class="big">Tout est révisé ✓</div><div class="q">${nextLine}</div></div>`
@@ -93,10 +108,14 @@ function draw() {
     r.innerHTML = topHTML(st) + empty + `<div class="rev-bar"><a class="btn" href="${routeHash({ view: "home" })}">Retour aux leçons</a></div>${other}`;
   } else if (st.done) {
     const again = st.mode === "libre" ? `<button class="btn solid" type="button" id="rAgain">Recommencer</button>` : "";
-    r.innerHTML = topHTML(st) + note + `<div class="card-face"><div class="big">${st.score} / ${st.total}</div><div class="q">cartes que tu savais déjà${st.mode === "jour" ? " · à demain !" : ""}</div></div>${warn}
+    const n = st.mode === "jour" ? streak(carnet.state.review_days.map(d => d.day), localToday()) : 0;
+    const series = n ? `<div class="rev-streak">🔥 ${n > 1 ? `${n} jours d'affilée` : "Premier jour de ta série"}</div>` : "";
+    r.innerHTML = topHTML(st) + note + `<div class="card-face"><div class="big">${st.score} / ${st.total}</div><div class="q">cartes que tu savais déjà${st.mode === "jour" ? " · à demain !" : ""}</div>${series}</div>${warn}
       <div class="rev-bar">${again}<a class="btn" href="${routeHash({ view: "progress" })}">Voir mes progrès</a></div>${other}`;
     if (again) focus = "#rAgain";
+    if (!doneShown) { doneShown = true; celebrate(); }
   } else {
+    doneShown = false;
     const e = st.card.entry, listen = st.card.dir === "ec";
     r.innerHTML = topHTML(st) + note + cardHTML(st) + warn + `<div class="rev-bar">${st.flipped
         ? `<button class="btn" type="button" id="rNo">À revoir</button><button class="btn solid" type="button" id="rYes">Je savais</button><button class="btn" type="button" id="rEasy" title="Ne la remontrer que dans 30 jours">Par cœur</button>`
