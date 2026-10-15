@@ -18,6 +18,7 @@ import { onLongPress } from "./long-press.js";
 import { openSheet } from "./sheet.js";
 import { blockHTML, BLOCK_TYPES } from "./rich.js";
 import { insertPositions } from "../carnet/page.js";
+import { motion } from "./motion.js";
 import { lessonStatus } from "../revision/stats.js";
 
 const time = e => Date.parse(e.created_at) || 0;
@@ -380,22 +381,20 @@ function bindEntries(root) {
   });
 }
 
-// Changer d'affichage : chaque mot et chaque bloc glisse de sa place à la nouvelle (une ligne devient une carte),
-// grâce aux View Transitions du navigateur. Sans elles, ou en mouvement réduit, simple changement ou fondu.
+// Changer d'affichage : chaque mot et chaque bloc glisse de sa place à la nouvelle (une ligne devient une carte).
 function switchView(page, view, rerender) {
   if (view === pageView) return;
-  const swap = () => { setPageView(view); rerender(); };
-  if (!document.startViewTransition) { swap(); return; }
-  const glide = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const name = () => glide && $$("[data-eid], [data-bid]", page).forEach(el => {
-    el.style.viewTransitionName = el.dataset.eid ? `e-${el.dataset.eid}` : `b-${el.dataset.bid}`;
-  });
-  name();
-  document.startViewTransition(() => { swap(); name(); });
+  const names = () => $$("[data-eid], [data-bid]", page).map(el => [el.dataset.eid ? `e-${el.dataset.eid}` : `b-${el.dataset.bid}`, el]);
+  motion.transition(() => { setPageView(view); rerender(); }, { type: "view", names });
 }
 
+// Pour l'effet tuile ↔ en-tête (app-shell.js) : la tuile d'une Leçon au sommaire, l'en-tête de la Page ouverte.
+export const lessonTile = id => document.querySelector(`#home .tile[data-lesson="${CSS.escape(id || "")}"]`);
+export const lessonHead = () => $("#page .lesson-head");
+export const openLessonId = () => $("#page").dataset.lesson;
+
 function showAndFlash(el) {
-  el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  el.scrollIntoView({ block: "center", behavior: motion.reduced() ? "auto" : "smooth" });
   el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
 }
 

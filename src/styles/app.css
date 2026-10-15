@@ -475,11 +475,11 @@ main{view-transition-name:screen}
 @keyframes screen-in-next{from{opacity:0;transform:translateX(24px)}}
 @keyframes screen-out-prev{to{opacity:0;transform:translateX(24px)}}
 @keyframes screen-in-prev{from{opacity:0;transform:translateX(-24px)}}
-html[data-tab-move] ::view-transition-group(screen){animation-duration:200ms}
-html[data-tab-move="next"] ::view-transition-old(screen){animation:screen-out-next 150ms var(--ease-out) both}
-html[data-tab-move="next"] ::view-transition-new(screen){animation:screen-in-next 200ms var(--ease-out) both}
-html[data-tab-move="prev"] ::view-transition-old(screen){animation:screen-out-prev 150ms var(--ease-out) both}
-html[data-tab-move="prev"] ::view-transition-new(screen){animation:screen-in-prev 200ms var(--ease-out) both}
+html[data-motion^="tab-"] ::view-transition-group(screen){animation-duration:200ms}
+html[data-motion="tab-next"] ::view-transition-old(screen){animation:screen-out-next 150ms var(--ease-out) both}
+html[data-motion="tab-next"] ::view-transition-new(screen){animation:screen-in-next 200ms var(--ease-out) both}
+html[data-motion="tab-prev"] ::view-transition-old(screen){animation:screen-out-prev 150ms var(--ease-out) both}
+html[data-motion="tab-prev"] ::view-transition-new(screen){animation:screen-in-prev 200ms var(--ease-out) both}
 
 /* Ouvrir / fermer une Leçon : la tuile devient l'en-tête de la page (et inversement), le contenu suit en fondu */
 ::view-transition-group(lesson-hero){animation-duration:300ms;animation-timing-function:var(--ease-in-out);overflow:clip;border-radius:var(--r)}
@@ -487,8 +487,8 @@ html[data-tab-move="prev"] ::view-transition-new(screen){animation:screen-in-pre
 ::view-transition-old(lesson-hero){animation-duration:150ms;animation-timing-function:var(--ease-out)}  /* l'ancienne forme, étirée, s'efface vite */
 @keyframes screen-in-up{from{opacity:0;transform:translateY(16px)}}
 @keyframes screen-fade-out{to{opacity:0}}
-html[data-lesson-move] ::view-transition-group(screen){animation-duration:300ms}
-html[data-lesson-move] ::view-transition-old(screen){animation:screen-fade-out 150ms var(--ease-out) both}
-html[data-lesson-move="open"] ::view-transition-new(screen){animation:screen-in-up 300ms var(--ease-out) both}
+html[data-motion^="lesson-"] ::view-transition-group(screen){animation-duration:300ms}
+html[data-motion^="lesson-"] ::view-transition-old(screen){animation:screen-fade-out 150ms var(--ease-out) both}
+html[data-motion="lesson-open"] ::view-transition-new(screen){animation:screen-in-up 300ms var(--ease-out) both}
 @keyframes screen-fade-in{from{opacity:0}}
-html[data-lesson-move="close"] ::view-transition-new(screen){animation:screen-fade-in 200ms var(--ease-out) both}
+html[data-motion="lesson-close"] ::view-transition-new(screen){animation:screen-fade-in 200ms var(--ease-out) both}

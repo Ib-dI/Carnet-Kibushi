@@ -3,7 +3,8 @@ import { carnet, setCarnet } from "./carnet-ref.js";
 import { $ } from "./dom.js";
 import { loggedInWithCode, askPassword } from "./login.js";
 import { topbarHTML, bindHeader, renderHeader } from "./header.js";
-import { renderLessons, setFilter, filtersHTML, bindFilters, showFilters, toggleFilters } from "./lessons.js";
+import { renderLessons, setFilter, filtersHTML, bindFilters, showFilters, toggleFilters, lessonTile, lessonHead, openLessonId } from "./lessons.js";
+import { motion } from "./motion.js";
 import { initReview, renderReview, leaveReview, renderProgress, dueCount } from "./review.js";
 import { setSince } from "./news-ref.js";
 import { currentRoute, routeHash, tabOf } from "./route.js";
@@ -69,31 +70,21 @@ function placeIndicator(animate = true) {
 // Changer d'onglet : l'écran glisse légèrement dans le sens de la barre (vers la droite = onglet suivant).
 const TAB_ORDER = ["lessons", "review", "progress"];
 let shownTab = null;
-// Ouvrir ou fermer une Leçon : sa tuile s'agrandit en en-tête de page, et l'en-tête redevient tuile au retour.
+// Changer d'onglet : l'écran glisse un peu dans le sens de la barre. Ouvrir ou fermer une Leçon : sa tuile
+// devient l'en-tête de la Page, et inversement. Le reste : changement direct.
 function changeScreen() {
   const route = currentRoute(), to = tabOf(route), from = shownTab;
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!from || reduce || !document.startViewTransition) { render(true); return; }
-  const root = document.documentElement;
+  if (!from) { render(true); return; }
+  const update = () => render(true);
   if (from !== to) {
-    root.dataset.tabMove = TAB_ORDER.indexOf(to) > TAB_ORDER.indexOf(from) ? "next" : "prev";
-    document.startViewTransition(() => render(true)).finished.finally(() => delete root.dataset.tabMove);
+    motion.transition(update, { type: TAB_ORDER.indexOf(to) > TAB_ORDER.indexOf(from) ? "tab-next" : "tab-prev" });
     return;
   }
   const opening = shownView === "home" && route.view === "lesson", closing = shownView === "lesson" && route.view === "home";
-  if (!opening && !closing) { render(true); return; }
-  const id = opening ? route.id : $("#page").dataset.lesson;
-  const tile = () => document.querySelector(`#home .tile[data-lesson="${CSS.escape(id || "")}"]`);
-  const head = () => $("#page .lesson-head");
-  const hero = el => { if (el) el.style.viewTransitionName = "lesson-hero"; return el; };
-  const before = hero(opening ? tile() : head());
-  if (!before) { render(true); return; }
-  root.dataset.lessonMove = opening ? "open" : "close";
-  const t = document.startViewTransition(() => { before.style.viewTransitionName = ""; render(true); hero(opening ? head() : tile()); });
-  t.finished.finally(() => {
-    delete root.dataset.lessonMove;
-    [tile(), head()].forEach(el => { if (el) el.style.viewTransitionName = ""; });
-  });
+  if (!opening && !closing) { update(); return; }
+  const id = opening ? route.id : openLessonId();
+  const hero = phase => [["lesson-hero", (phase === "before") === opening ? lessonTile(id) : lessonHead()]];
+  motion.transition(update, { type: opening ? "lesson-open" : "lesson-close", names: hero });
 }
 
 let shownView = null;
